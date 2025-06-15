@@ -8,7 +8,6 @@ import {
   Typography,
   Tabs,
   Select,
-  DatePicker,
   Space,
   Tag,
   Avatar,
@@ -44,13 +43,10 @@ import {
 } from "react-icons/fa";
 import { MdDashboard, MdAnalytics } from "react-icons/md";
 import { motion } from "framer-motion";
-import { adminAPI } from "../../utils/api";
 import LoadingSpinner from "../common/LoadingSpinner";
-import { format, subDays } from "date-fns";
 
 const { Title, Text } = Typography;
 const { TabPane } = Tabs;
-const { RangePicker } = DatePicker;
 const { Option } = Select;
 
 // Colors for charts
@@ -83,7 +79,7 @@ const StatCard = ({
               prefix={prefix}
               suffix={suffix}
               valueStyle={{
-                color: `var(--ant-${color}-6)`,
+                color: `#1890ff`,
                 fontSize: "1.75rem",
                 fontWeight: "bold",
               }}
@@ -96,9 +92,7 @@ const StatCard = ({
             )}
           </div>
         </div>
-        <div
-          className={`w-12 h-12 rounded-lg bg-gradient-to-br from-${color}-400 to-${color}-600 flex items-center justify-center`}
-        >
+        <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
           <Icon className="text-white text-xl" />
         </div>
       </div>
@@ -109,38 +103,87 @@ const StatCard = ({
 const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState(null);
-  const [selectedDateRange, setSelectedDateRange] = useState([
-    subDays(new Date(), 30),
-    new Date(),
-  ]);
   const [selectedGame, setSelectedGame] = useState("all");
-
-  // Sample data - bu real API dan keladi
   const [userData, setUserData] = useState([]);
   const [gameData, setGameData] = useState([]);
-  const [analyticsData, setAnalyticsData] = useState([]);
 
   useEffect(() => {
     loadDashboardData();
-  }, [selectedDateRange, selectedGame]);
+  }, [selectedGame]);
 
   const loadDashboardData = async () => {
     try {
       setLoading(true);
 
-      // Load dashboard stats
-      const dashboardResponse = await adminAPI.getDashboardStats();
-      setDashboardData(dashboardResponse.data);
+      // Mock dashboard data
+      const mockDashboardData = {
+        totalUsers: 1248,
+        activeGames: 856,
+        dailyGames: 342,
+        topScore: 9850,
+      };
 
-      // Load users data
-      const usersResponse = await adminAPI.getUsers(1, 10);
-      setUserData(usersResponse.data.users);
+      // Mock users data
+      const mockUsers = [
+        {
+          id: 1,
+          name: "Ahmadjon Karimov",
+          email: "ahmadjon@example.com",
+          avatar: null,
+          level: 12,
+          totalScore: 15420,
+          gamesPlayed: 247,
+          lastLogin: "2 soat oldin",
+          isActive: true,
+        },
+        {
+          id: 2,
+          name: "Malika Sultanova",
+          email: "malika@example.com",
+          avatar: null,
+          level: 15,
+          totalScore: 18950,
+          gamesPlayed: 312,
+          lastLogin: "1 soat oldin",
+          isActive: true,
+        },
+        {
+          id: 3,
+          name: "Bobur Mahmudov",
+          email: "bobur@example.com",
+          avatar: null,
+          level: 8,
+          totalScore: 9650,
+          gamesPlayed: 178,
+          lastLogin: "1 kun oldin",
+          isActive: false,
+        },
+        {
+          id: 4,
+          name: "Dilorom Karimova",
+          email: "dilorom@example.com",
+          avatar: null,
+          level: 10,
+          totalScore: 12340,
+          gamesPlayed: 203,
+          lastLogin: "3 soat oldin",
+          isActive: true,
+        },
+        {
+          id: 5,
+          name: "Jasur Normatov",
+          email: "jasur@example.com",
+          avatar: null,
+          level: 6,
+          totalScore: 7890,
+          gamesPlayed: 145,
+          lastLogin: "2 kun oldin",
+          isActive: true,
+        },
+      ];
 
-      // Load game analytics
-      if (selectedGame !== "all") {
-        const analyticsResponse = await adminAPI.getGameAnalytics(selectedGame);
-        setAnalyticsData(analyticsResponse.data);
-      }
+      setDashboardData(mockDashboardData);
+      setUserData(mockUsers);
 
       // Sample chart data
       setGameData([
@@ -165,9 +208,7 @@ const AdminDashboard = () => {
       key: "name",
       render: (text, record) => (
         <div className="flex items-center space-x-3">
-          <Avatar src={record.avatar} size="small">
-            {text?.charAt(0)}
-          </Avatar>
+          <Avatar size="small">{text?.charAt(0)}</Avatar>
           <div>
             <div className="font-medium">{text}</div>
             <div className="text-xs text-gray-500">{record.email}</div>
@@ -185,6 +226,7 @@ const AdminDashboard = () => {
       title: "Umumiy ball",
       dataIndex: "totalScore",
       key: "totalScore",
+      render: (score) => score.toLocaleString(),
       sorter: (a, b) => a.totalScore - b.totalScore,
     },
     {
@@ -197,7 +239,6 @@ const AdminDashboard = () => {
       title: "Oxirgi kirish",
       dataIndex: "lastLogin",
       key: "lastLogin",
-      render: (date) => format(new Date(), "dd.MM.yyyy HH:mm"),
     },
     {
       title: "Status",
@@ -250,7 +291,7 @@ const AdminDashboard = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
+    <div className="max-w-7xl p-4 mx-auto space-y-6">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
@@ -267,11 +308,6 @@ const AdminDashboard = () => {
           </Text>
         </div>
         <Space>
-          <RangePicker
-            value={selectedDateRange}
-            onChange={setSelectedDateRange}
-            format="DD.MM.YYYY"
-          />
           <Button icon={<FaDownload />} type="primary">
             Export
           </Button>
@@ -344,7 +380,7 @@ const AdminDashboard = () => {
             >
               <Row gutter={[24, 24]}>
                 {/* User Activity Chart */}
-                <Col xs={24} lg={16}>
+                <Col xs={24} lg={14}>
                   <Card title="Foydalanuvchi faolligi" className="h-full">
                     <ResponsiveContainer width="100%" height={300}>
                       <AreaChart data={userActivityData}>
@@ -375,7 +411,7 @@ const AdminDashboard = () => {
                 </Col>
 
                 {/* Game Distribution */}
-                <Col xs={24} lg={8}>
+                <Col xs={24} lg={10}>
                   <Card title="O'yinlar taqsimoti" className="h-full">
                     <ResponsiveContainer width="100%" height={300}>
                       <PieChart>
