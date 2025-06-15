@@ -1,6 +1,6 @@
 import { useParams, Navigate } from "react-router-dom";
 import { Suspense, lazy } from "react";
-import LoadingSpinner from "../components/LoadingSpinner";
+import LoadingSpinner from "../components/common/LoadingSpinner";
 
 // Lazy load game components
 const NumberMemoryGame = lazy(() =>

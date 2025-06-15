@@ -44,8 +44,8 @@ import {
 } from "react-icons/fa";
 import { MdDashboard, MdAnalytics } from "react-icons/md";
 import { motion } from "framer-motion";
-import { adminAPI } from "../utils/api";
-import LoadingSpinner from "../components/LoadingSpinner";
+import { adminAPI } from "../../utils/api";
+import LoadingSpinner from "../common/LoadingSpinner";
 import { format, subDays } from "date-fns";
 
 const { Title, Text } = Typography;

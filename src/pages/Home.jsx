@@ -8,7 +8,7 @@ import {
   FaChartLine,
   FaGamepad,
   FaStar,
-  FaTarget,
+  FaThLarge,
   FaRocket,
 } from "react-icons/fa";
 import { motion } from "framer-motion";
@@ -317,7 +317,7 @@ const Home = () => {
                 <Button
                   type="primary"
                   size="large"
-                  icon={<FaTarget />}
+                  icon={<FaThLarge />}
                   className="bg-white text-primary-600 hover:bg-gray-100 border-none px-8 py-3 h-auto text-lg font-medium"
                 >
                   Hoziroq boshlash
@@ -388,7 +388,7 @@ const Home = () => {
 
                 <div className="flex items-start space-x-4">
                   <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <FaTarget className="text-green-600 text-xl" />
+                    <FaThLarge className="text-green-600 text-xl" />
                   </div>
                   <div>
                     <Title level={4} className="mb-2">

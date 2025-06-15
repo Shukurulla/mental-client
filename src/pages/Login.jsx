@@ -1,6 +1,15 @@
 import { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { Card, Form, Input, Button, Typography, Divider, Space } from "antd";
+import {
+  Card,
+  Form,
+  Input,
+  Button,
+  Typography,
+  Divider,
+  Space,
+  Checkbox,
+} from "antd";
 import { FaEye, FaEyeSlash, FaBrain, FaEnvelope, FaLock } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { useAuthStore } from "../stores/authStore";
@@ -12,6 +21,7 @@ const Login = () => {
   const location = useLocation();
   const { login } = useAuthStore();
   const [loading, setLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [form] = Form.useForm();
 
   const from = location.state?.from?.pathname || "/games";
@@ -26,6 +36,13 @@ const Login = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDemoLogin = () => {
+    form.setFieldsValue({
+      email: "demo@mentalmath.uz",
+      password: "demo123",
+    });
   };
 
   return (
@@ -101,6 +118,22 @@ const Login = () => {
               />
             </Form.Item>
 
+            {/* Remember Me & Forgot Password */}
+            <div className="flex justify-between items-center">
+              <Checkbox
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+              >
+                <Text className="text-gray-600 text-sm">Meni eslab qol</Text>
+              </Checkbox>
+              <Link
+                to="/forgot-password"
+                className="text-primary-600 hover:text-primary-700 text-sm font-medium"
+              >
+                Parolni unutdingizmi?
+              </Link>
+            </div>
+
             <Form.Item className="mb-6">
               <Button
                 type="primary"
@@ -119,7 +152,7 @@ const Login = () => {
           </Divider>
 
           {/* Register Link */}
-          <div className="text-center">
+          <div className="text-center mb-6">
             <Text className="text-gray-600">
               Hisobingiz yo'qmi?{" "}
               <Link
@@ -132,16 +165,57 @@ const Login = () => {
           </div>
 
           {/* Demo Account */}
-          <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <Text className="text-blue-800 text-sm block mb-2 font-medium">
-              Demo hisob:
-            </Text>
-            <Space direction="vertical" size="small" className="w-full">
-              <Text className="text-blue-700 text-xs">
-                📧 Email: demo@mentalmath.uz
+          <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="flex justify-between items-center mb-3">
+              <Text className="text-blue-800 text-sm font-medium">
+                Demo hisobni sinab ko'ring:
               </Text>
-              <Text className="text-blue-700 text-xs">🔑 Parol: demo123</Text>
+              <Button
+                type="link"
+                size="small"
+                onClick={handleDemoLogin}
+                className="text-blue-600 hover:text-blue-700 p-0 h-auto"
+              >
+                To'ldirish
+              </Button>
+            </div>
+            <Space direction="vertical" size="small" className="w-full">
+              <div className="flex items-center justify-between">
+                <Text className="text-blue-700 text-xs">📧 Email:</Text>
+                <Text className="text-blue-700 text-xs font-mono">
+                  demo@mentalmath.uz
+                </Text>
+              </div>
+              <div className="flex items-center justify-between">
+                <Text className="text-blue-700 text-xs">🔑 Parol:</Text>
+                <Text className="text-blue-700 text-xs font-mono">demo123</Text>
+              </div>
             </Space>
+          </div>
+
+          {/* Quick Benefits */}
+          <div className="mt-6 p-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg border border-green-200">
+            <Title level={5} className="mb-3 text-green-800">
+              ⚡ Tez boshlash:
+            </Title>
+            <div className="grid grid-cols-2 gap-2 text-green-700 text-xs">
+              <div className="flex items-center space-x-1">
+                <span>🎮</span>
+                <Text className="text-green-700 text-xs">11 ta o'yin</Text>
+              </div>
+              <div className="flex items-center space-x-1">
+                <span>🏆</span>
+                <Text className="text-green-700 text-xs">Reyting</Text>
+              </div>
+              <div className="flex items-center space-x-1">
+                <span>📊</span>
+                <Text className="text-green-700 text-xs">Statistika</Text>
+              </div>
+              <div className="flex items-center space-x-1">
+                <span>🎯</span>
+                <Text className="text-green-700 text-xs">Yutuqlar</Text>
+              </div>
+            </div>
           </div>
         </Card>
 

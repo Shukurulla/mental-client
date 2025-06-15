@@ -19,7 +19,7 @@ import {
   FaTable,
   FaCalculator,
   FaDivide,
-  FaFractionSlash,
+  FaFistRaised,
   FaPercentage,
   FaBookOpen,
   FaEyeSlash,
@@ -30,7 +30,7 @@ import {
 import { motion } from "framer-motion";
 import { gamesAPI, resultsAPI } from "../utils/api";
 import { useAuthStore } from "../stores/authStore";
-import LoadingSpinner from "../components/LoadingSpinner";
+import LoadingSpinner from "../components/common/LoadingSpinner";
 
 const { Title, Text } = Typography;
 const { Search } = Input;
@@ -45,7 +45,7 @@ const gameIcons = {
   doubleSchulte: FaTable,
   mathSystems: FaCalculator,
   gcdLcm: FaDivide,
-  fractions: FaFractionSlash,
+  fractions: FaFistRaised,
   percentages: FaPercentage,
   readingSpeed: FaBookOpen,
   hideAndSeek: FaEyeSlash,
