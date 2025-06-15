@@ -10,7 +10,14 @@ import {
   Space,
   Checkbox,
 } from "antd";
-import { FaEye, FaEyeSlash, FaBrain, FaEnvelope, FaLock } from "react-icons/fa";
+import {
+  FaEye,
+  FaEyeSlash,
+  FaBrain,
+  FaEnvelope,
+  FaLock,
+  FaCrown,
+} from "react-icons/fa";
 import { motion } from "framer-motion";
 import { useAuthStore } from "../stores/authStore";
 
@@ -45,6 +52,50 @@ const Login = () => {
     });
   };
 
+  // Development uchun admin login
+  const handleAdminLogin = async () => {
+    setLoading(true);
+    try {
+      // Mock admin login for development
+      const adminCredentials = {
+        email: "admin@mentalmath.uz",
+        password: "admin123",
+      };
+
+      const result = await login(adminCredentials);
+      if (result.success) {
+        navigate("/admin", { replace: true });
+      } else {
+        // Agar API mavjud bo'lmasa, mock admin user yaratish
+        const { useAuthStore } = await import("../stores/authStore");
+        const { set } = useAuthStore.getState();
+
+        const adminUser = {
+          id: 1,
+          name: "Admin User",
+          email: "admin@mentalmath.uz",
+          role: "admin",
+          level: 20,
+          totalScore: 25000,
+          gamesPlayed: 150,
+          avatar: null,
+        };
+
+        set({
+          user: adminUser,
+          token: "mock-admin-token-" + Date.now(),
+          isAuthenticated: true,
+        });
+
+        navigate("/admin", { replace: true });
+      }
+    } catch (error) {
+      console.error("Admin login error:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 p-4">
       <motion.div
@@ -71,6 +122,25 @@ const Login = () => {
               Hisobingizga kiring va o'yinni davom eting
             </Text>
           </div>
+
+          {/* Development Admin Login */}
+          {process.env.NODE_ENV === "development" && (
+            <div className="mb-6">
+              <Button
+                type="primary"
+                block
+                icon={<FaCrown />}
+                onClick={handleAdminLogin}
+                loading={loading}
+                className="h-12 text-lg font-medium bg-gradient-to-r from-purple-500 to-pink-500 border-none rounded-lg mb-4"
+              >
+                🔐 Admin sifatida kirish (Dev)
+              </Button>
+              <Divider className="my-4">
+                <Text className="text-gray-500 text-sm">yoki oddiy login</Text>
+              </Divider>
+            </div>
+          )}
 
           {/* Login Form */}
           <Form
@@ -192,6 +262,34 @@ const Login = () => {
               </div>
             </Space>
           </div>
+
+          {/* Admin Access Info */}
+          {process.env.NODE_ENV === "development" && (
+            <div className="mt-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
+              <Title level={5} className="mb-3 text-purple-800">
+                👑 Admin Panel:
+              </Title>
+              <div className="space-y-1 text-purple-700 text-xs">
+                <div className="flex items-center justify-between">
+                  <Text className="text-purple-700 text-xs">📧 Email:</Text>
+                  <Text className="text-purple-700 text-xs font-mono">
+                    admin@mentalmath.uz
+                  </Text>
+                </div>
+                <div className="flex items-center justify-between">
+                  <Text className="text-purple-700 text-xs">🔑 Parol:</Text>
+                  <Text className="text-purple-700 text-xs font-mono">
+                    admin123
+                  </Text>
+                </div>
+                <div className="mt-2 text-center">
+                  <Text className="text-purple-600 text-xs">
+                    Yuqoridagi "Admin sifatida kirish" tugmasini bosing
+                  </Text>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Quick Benefits */}
           <div className="mt-6 p-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg border border-green-200">

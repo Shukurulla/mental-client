@@ -18,6 +18,8 @@ import Games from "./pages/Games";
 import GamePlay from "./pages/GamePlay";
 import Profile from "./pages/Profile";
 import Leaderboard from "./pages/Leaderboard";
+
+// Admin Components - to'g'ri import
 import AdminDashboard from "./components/admin/Dashboard";
 
 import "./styles/globals.css";
@@ -26,16 +28,17 @@ import ProtectedRoute from "./components/common/ProtectedRoute";
 import LoadingSpinner from "./components/common/LoadingSpinner";
 
 function App() {
-  const { user, isLoading, checkAuth } = useAuthStore();
+  const { user, isLoading, checkAuth, isAuthenticated } = useAuthStore();
 
   useEffect(() => {
     checkAuth();
   }, [checkAuth]);
 
+  // Initial loading
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50">
-        <LoadingSpinner size="large" />
+        <LoadingSpinner size="large" text="Yuklanmoqda..." />
       </div>
     );
   }
@@ -60,11 +63,19 @@ function App() {
             {/* Public routes */}
             <Route
               path="/login"
-              element={user ? <Navigate to="/games" replace /> : <Login />}
+              element={
+                isAuthenticated ? <Navigate to="/games" replace /> : <Login />
+              }
             />
             <Route
               path="/register"
-              element={user ? <Navigate to="/games" replace /> : <Register />}
+              element={
+                isAuthenticated ? (
+                  <Navigate to="/games" replace />
+                ) : (
+                  <Register />
+                )
+              }
             />
 
             {/* Protected routes with layout */}
@@ -102,15 +113,17 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-              <Route
-                path="admin"
-                element={
-                  <ProtectedRoute adminOnly>
-                    <AdminDashboard />
-                  </ProtectedRoute>
-                }
-              />
             </Route>
+
+            {/* Admin routes - alohida layout siz */}
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute adminOnly>
+                  <AdminDashboard />
+                </ProtectedRoute>
+              }
+            />
 
             {/* Catch all route */}
             <Route path="*" element={<Navigate to="/" replace />} />

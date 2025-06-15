@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { persist, createJSONStorage } from "zustand/middleware";
 import api from "../utils/api";
 import toast from "react-hot-toast";
 
@@ -89,6 +89,8 @@ const useAuthStore = create(
           return;
         }
 
+        set({ isLoading: true });
+
         try {
           // Set auth header
           api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
@@ -102,6 +104,7 @@ const useAuthStore = create(
             isLoading: false,
           });
         } catch (error) {
+          console.log("Token verification failed:", error);
           // Token is invalid, clear auth data
           delete api.defaults.headers.common["Authorization"];
           set({
@@ -152,6 +155,10 @@ const useAuthStore = create(
             user: {
               ...currentUser,
               ...newStats,
+              totalScore:
+                (currentUser.totalScore || 0) + (newStats.totalScore || 0),
+              gamesPlayed:
+                (currentUser.gamesPlayed || 0) + (newStats.gamesPlayed || 0),
             },
           });
         }
@@ -159,11 +166,38 @@ const useAuthStore = create(
     }),
     {
       name: "auth-storage",
+      storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         token: state.token,
         user: state.user,
         isAuthenticated: state.isAuthenticated,
       }),
+      // version 1 ni qo'shdik localStorage clear qilish uchun
+      version: 1,
+      migrate: (persistedState, version) => {
+        // Agar version eski bo'lsa, state-ni tozalash
+        if (version < 1) {
+          return {
+            user: null,
+            token: null,
+            isAuthenticated: false,
+          };
+        }
+        return persistedState;
+      },
+      // Hydration completed callback
+      onRehydrateStorage: () => {
+        return (state, error) => {
+          if (error) {
+            console.log("Auth rehydration xatosi:", error);
+          } else if (state?.token) {
+            // Auth headerini qayta o'rnatish
+            api.defaults.headers.common[
+              "Authorization"
+            ] = `Bearer ${state.token}`;
+          }
+        };
+      },
     }
   )
 );

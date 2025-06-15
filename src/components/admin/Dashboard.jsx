@@ -197,7 +197,7 @@ const AdminDashboard = () => {
       title: "Oxirgi kirish",
       dataIndex: "lastLogin",
       key: "lastLogin",
-      render: (date) => format(new Date(date), "dd.MM.yyyy HH:mm"),
+      render: (date) => format(new Date(), "dd.MM.yyyy HH:mm"),
     },
     {
       title: "Status",

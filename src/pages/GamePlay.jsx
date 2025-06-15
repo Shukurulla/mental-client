@@ -1,6 +1,8 @@
-import { useParams, Navigate } from "react-router-dom";
+import { useParams, Navigate, useNavigate } from "react-router-dom";
 import { Suspense, lazy } from "react";
 import LoadingSpinner from "../components/common/LoadingSpinner";
+import { Button } from "antd";
+import { FaArrowLeft } from "react-icons/fa";
 
 // Lazy load game components
 const NumberMemoryGame = lazy(() =>
@@ -33,6 +35,7 @@ const HideAndSeekGame = lazy(() =>
 
 const GamePlay = () => {
   const { gameType } = useParams();
+  const navigate = useNavigate();
 
   // Game type validation
   const validGameTypes = [
@@ -92,6 +95,9 @@ const GamePlay = () => {
           </div>
         }
       >
+        <Button variant="outlined" onClick={() => navigate("/games")}>
+          <FaArrowLeft /> Orqaga
+        </Button>
         {renderGame()}
       </Suspense>
     </div>
