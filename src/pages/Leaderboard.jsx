@@ -9,13 +9,11 @@ import {
   Tag,
   Select,
   Button,
-  Tabs,
   Statistic,
-  Progress,
   Input,
-  DatePicker,
   Space,
   Tooltip,
+  message,
 } from "antd";
 import {
   FaTrophy,
@@ -23,158 +21,149 @@ import {
   FaStar,
   FaFire,
   FaSearch,
-  FaCalendar,
   FaGamepad,
   FaBrain,
   FaUser,
   FaCrown,
   FaAward,
+  FaRulerCombined,
 } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { useAuthStore } from "../stores/authStore";
-import { resultsAPI } from "../utils/api";
-import { formatScore, formatDate } from "../utils/helpers";
-import LoadingSpinner from "../components/common/LoadingSpinner";
+import axios from "axios";
 
 const { Title, Text } = Typography;
-const { TabPane } = Tabs;
 const { Option } = Select;
 const { Search } = Input;
-const { RangePicker } = DatePicker;
+
+// API base URL
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 const Leaderboard = () => {
   const { user } = useAuthStore();
+  const token = JSON.parse(localStorage.getItem("auth-storage")).state.token;
   const [loading, setLoading] = useState(true);
+  const [refreshLoading, setRefreshLoading] = useState(false);
   const [leaderboardData, setLeaderboardData] = useState({
     overall: [],
-    weekly: [],
-    monthly: [],
     gameSpecific: {},
   });
   const [selectedGame, setSelectedGame] = useState("overall");
-  const [selectedPeriod, setSelectedPeriod] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [userStats, setUserStats] = useState({
+    rank: 0,
+    totalScore: 0,
+    level: 0,
+    gamesPlayed: 0,
+  });
 
   useEffect(() => {
     loadLeaderboardData();
-  }, [selectedGame, selectedPeriod]);
+    if (user) {
+      loadUserStats();
+    }
+  }, [selectedGame]);
 
   const loadLeaderboardData = async () => {
     try {
       setLoading(true);
 
-      // Mock leaderboard data
-      const mockOverallData = [
-        {
-          id: 1,
-          rank: 1,
-          name: "Ahmadjon Karimov",
-          avatar: null,
-          totalScore: 25840,
-          level: 18,
-          gamesPlayed: 324,
-          winRate: 89,
-          avgScore: 79.8,
-          streak: 12,
-          isCurrentUser: false,
-        },
-        {
-          id: 2,
-          rank: 2,
-          name: "Malika Sultanova",
-          avatar: null,
-          totalScore: 24310,
-          level: 17,
-          gamesPlayed: 298,
-          winRate: 91,
-          avgScore: 81.6,
-          streak: 25,
-          isCurrentUser: false,
-        },
-        {
-          id: 3,
-          rank: 3,
-          name: "Bobur Mahmudov",
-          avatar: null,
-          totalScore: 22650,
-          level: 16,
-          gamesPlayed: 267,
-          winRate: 84,
-          avgScore: 84.8,
-          streak: 8,
-          isCurrentUser: false,
-        },
-        {
-          id: 4,
-          rank: 4,
-          name: user?.name || "Siz",
-          avatar: user?.avatar,
-          totalScore: user?.totalScore || 18950,
-          level: user?.level || 15,
-          gamesPlayed: user?.gamesPlayed || 234,
-          winRate: 87,
-          avgScore: 81.0,
-          streak: 15,
-          isCurrentUser: true,
-        },
-        {
-          id: 5,
-          rank: 5,
-          name: "Dilorom Karimova",
-          avatar: null,
-          totalScore: 18240,
-          level: 14,
-          gamesPlayed: 212,
-          winRate: 86,
-          avgScore: 86.1,
-          streak: 6,
-          isCurrentUser: false,
-        },
-        // Add more mock users...
-        ...Array.from({ length: 15 }, (_, i) => ({
-          id: i + 6,
-          rank: i + 6,
-          name: `Foydalanuvchi ${i + 6}`,
-          avatar: null,
-          totalScore: 18000 - i * 800,
-          level: 14 - Math.floor(i / 3),
-          gamesPlayed: 200 - i * 10,
-          winRate: 85 - i * 2,
-          avgScore: 80 - i * 1.5,
-          streak: Math.max(1, 10 - i),
-          isCurrentUser: false,
-        })),
-      ];
+      if (selectedGame === "overall") {
+        // Load global leaderboard
+        const response = await axios.get(
+          `${API_BASE_URL}/results/leaderboard/global?limit=50`
+        );
 
-      const mockGameData = {
-        numberMemory: mockOverallData.map((user) => ({
-          ...user,
-          totalScore: user.totalScore * 0.3,
-          gamesPlayed: Math.floor(user.gamesPlayed * 0.4),
-        })),
-        schulteTable: mockOverallData.map((user) => ({
-          ...user,
-          totalScore: user.totalScore * 0.25,
-          gamesPlayed: Math.floor(user.gamesPlayed * 0.3),
-        })),
-        mathSystems: mockOverallData.map((user) => ({
-          ...user,
-          totalScore: user.totalScore * 0.2,
-          gamesPlayed: Math.floor(user.gamesPlayed * 0.2),
-        })),
-      };
+        if (response.data.success) {
+          const globalData = response.data.data.map((user, index) => ({
+            id: user._id,
+            rank: index + 1,
+            name: user.name,
+            avatar: user.avatar,
+            totalScore: user.totalScore || 0,
+            level: user.level || 1,
+            gamesPlayed: user.gamesPlayed || 0,
+            winRate: Math.round(Math.random() * 30 + 70), // Temporary calculation
+            avgScore: Math.round(
+              (user.totalScore || 0) / Math.max(user.gamesPlayed || 1, 1)
+            ),
+            streak: Math.floor(Math.random() * 20 + 1), // Temporary
+            isCurrentUser: user._id === user?.id,
+          }));
 
-      setLeaderboardData({
-        overall: mockOverallData,
-        weekly: mockOverallData.slice(0, 10),
-        monthly: mockOverallData.slice(0, 15),
-        gameSpecific: mockGameData,
-      });
+          setLeaderboardData((prev) => ({
+            ...prev,
+            overall: globalData,
+          }));
+        }
+      } else {
+        // Load game-specific leaderboard
+        const response = await axios.get(
+          `${API_BASE_URL}/results/leaderboard/${selectedGame}`
+        );
+
+        if (response.data.success) {
+          const gameData = response.data.data.map((item, index) => ({
+            id: item.user?._id || item._id,
+            rank: index + 1,
+            name: item.user?.name || "Unknown",
+            avatar: item.user?.avatar,
+            totalScore: item.bestScore || 0,
+            level: item.user?.level || 1,
+            gamesPlayed: item.gamesPlayed || 0,
+            winRate: Math.round(Math.random() * 30 + 70),
+            avgScore: Math.round(item.bestScore || 0),
+            streak: Math.floor(Math.random() * 20 + 1),
+            isCurrentUser: item.user?._id === user?.id,
+          }));
+
+          setLeaderboardData((prev) => ({
+            ...prev,
+            gameSpecific: {
+              ...prev.gameSpecific,
+              [selectedGame]: gameData,
+            },
+          }));
+        }
+      }
     } catch (error) {
       console.error("Reyting ma'lumotlarini yuklashda xato:", error);
+      message.error("Reyting ma'lumotlarini yuklashda xato yuz berdi");
     } finally {
       setLoading(false);
     }
+  };
+  console.log();
+
+  const loadUserStats = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/results/stats`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (response.data.success) {
+        const data = response.data.data;
+        setUserStats({
+          rank: data.userRank || 0,
+          totalScore: data.user?.totalScore || 0,
+          level: data.user?.level || 1,
+          gamesPlayed: data.user?.gamesPlayed || 0,
+        });
+      }
+    } catch (error) {
+      console.error("User stats yuklashda xato:", error);
+    }
+  };
+
+  const refreshLeaderboard = async () => {
+    setRefreshLoading(true);
+    await loadLeaderboardData();
+    if (user) {
+      await loadUserStats();
+    }
+    setRefreshLoading(false);
+    message.success("Reyting yangilandi");
   };
 
   const getRankIcon = (rank) => {
@@ -190,12 +179,9 @@ const Leaderboard = () => {
     }
   };
 
-  const getRankColor = (rank) => {
-    if (rank === 1) return "gold";
-    if (rank === 2) return "default";
-    if (rank === 3) return "orange";
-    if (rank <= 10) return "blue";
-    return "default";
+  const formatScore = (score) => {
+    if (!score) return "0";
+    return score.toLocaleString();
   };
 
   const columns = [
@@ -285,7 +271,7 @@ const Leaderboard = () => {
       dataIndex: "avgScore",
       key: "avgScore",
       width: 100,
-      render: (avg) => avg.toFixed(1),
+      render: (avg) => formatScore(avg),
     },
   ];
 
@@ -298,22 +284,10 @@ const Leaderboard = () => {
 
   const getCurrentData = () => {
     if (selectedGame === "overall") {
-      return selectedPeriod === "weekly"
-        ? leaderboardData.weekly
-        : selectedPeriod === "monthly"
-        ? leaderboardData.monthly
-        : leaderboardData.overall;
+      return leaderboardData.overall;
     }
     return leaderboardData.gameSpecific[selectedGame] || [];
   };
-
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-[400px]">
-        <LoadingSpinner size="large" />
-      </div>
-    );
-  }
 
   const currentUserRank = getCurrentData().find((u) => u.isCurrentUser);
 
@@ -335,7 +309,7 @@ const Leaderboard = () => {
       </motion.div>
 
       {/* Current User Stats */}
-      {currentUserRank && (
+      {user && userStats && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -350,7 +324,7 @@ const Leaderboard = () => {
                 <Col xs={12} sm={6}>
                   <div className="text-center">
                     <div className="text-3xl mb-2">
-                      {getRankIcon(currentUserRank.rank)}
+                      {getRankIcon(userStats.rank || 999)}
                     </div>
                     <Text className="text-gray-600">O'rin</Text>
                   </div>
@@ -358,7 +332,7 @@ const Leaderboard = () => {
                 <Col xs={12} sm={6}>
                   <Statistic
                     title="Umumiy ball"
-                    value={currentUserRank.totalScore}
+                    value={userStats.totalScore}
                     formatter={(value) => formatScore(value)}
                     valueStyle={{ color: "#1890ff" }}
                   />
@@ -366,15 +340,14 @@ const Leaderboard = () => {
                 <Col xs={12} sm={6}>
                   <Statistic
                     title="O'yinlar"
-                    value={currentUserRank.gamesPlayed}
+                    value={userStats.gamesPlayed}
                     valueStyle={{ color: "#52c41a" }}
                   />
                 </Col>
                 <Col xs={12} sm={6}>
                   <Statistic
-                    title="G'alaba %"
-                    value={currentUserRank.winRate}
-                    suffix="%"
+                    title="Daraja"
+                    value={userStats.level}
                     valueStyle={{ color: "#faad14" }}
                   />
                 </Col>
@@ -460,7 +433,7 @@ const Leaderboard = () => {
                 allowClear
               />
             </Col>
-            <Col xs={12} sm={4}>
+            <Col xs={12} sm={6}>
               <Select
                 value={selectedGame}
                 onChange={setSelectedGame}
@@ -474,41 +447,33 @@ const Leaderboard = () => {
                   <FaBrain className="mr-2" />
                   Raqam xotirasi
                 </Option>
-                <Option value="schulteTable">
+                <Option value="tileMemory">
                   <FaGamepad className="mr-2" />
+                  Plitkalar
+                </Option>
+                <Option value="schulteTable">
+                  <FaMedal className="mr-2" />
                   Schulte
                 </Option>
                 <Option value="mathSystems">
                   <FaMedal className="mr-2" />
                   Matematik
                 </Option>
+                <Option value="percentages">
+                  <FaMedal className="mr-2" />
+                  Foizlar
+                </Option>
               </Select>
             </Col>
             <Col xs={12} sm={4}>
-              <Select
-                value={selectedPeriod}
-                onChange={setSelectedPeriod}
+              <Button
+                icon={<FaRulerCombined />}
+                onClick={refreshLeaderboard}
+                loading={refreshLoading}
                 style={{ width: "100%" }}
               >
-                <Option value="all">Barcha vaqt</Option>
-                <Option value="monthly">Bu oy</Option>
-                <Option value="weekly">Bu hafta</Option>
-              </Select>
-            </Col>
-            <Col xs={24} sm={8}>
-              <div className="flex justify-end">
-                <Space>
-                  <Tooltip title="Ma'lumotlarni yangilash">
-                    <Button
-                      icon={<FaSearch />}
-                      onClick={loadLeaderboardData}
-                      loading={loading}
-                    >
-                      Yangilash
-                    </Button>
-                  </Tooltip>
-                </Space>
-              </div>
+                Yangilash
+              </Button>
             </Col>
           </Row>
         </Card>
@@ -525,6 +490,7 @@ const Leaderboard = () => {
             columns={columns}
             dataSource={filteredData(getCurrentData())}
             rowKey="id"
+            loading={loading}
             pagination={{
               pageSize: 20,
               showSizeChanger: true,
@@ -589,76 +555,6 @@ const Leaderboard = () => {
             </Card>
           </Col>
         </Row>
-      </motion.div>
-
-      {/* Weekly Challenges */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.6 }}
-      >
-        <Card>
-          <Title level={4} className="mb-4">
-            <FaAward className="mr-2 text-orange-500" />
-            Haftalik Challenge-lar
-          </Title>
-          <Row gutter={[16, 16]}>
-            <Col xs={24} md={8}>
-              <Card className="bg-gradient-to-br from-orange-50 to-red-50 border-orange-200">
-                <div className="text-center">
-                  <div className="text-3xl mb-2">🔥</div>
-                  <Title level={5}>Olovli Seriya</Title>
-                  <Text className="text-gray-600 block mb-3">
-                    7 kun ketma-ket o'ynang
-                  </Text>
-                  <Progress
-                    percent={user ? Math.min((15 / 7) * 100, 100) : 0}
-                    strokeColor="#f97316"
-                  />
-                  <Text className="text-xs text-gray-500">
-                    {user ? "15/7 kun" : "0/7 kun"}
-                  </Text>
-                </div>
-              </Card>
-            </Col>
-            <Col xs={24} md={8}>
-              <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200">
-                <div className="text-center">
-                  <div className="text-3xl mb-2">🎯</div>
-                  <Title level={5}>Aniq Nishon</Title>
-                  <Text className="text-gray-600 block mb-3">
-                    90% aniqlik bilan 10 ta o'yin
-                  </Text>
-                  <Progress
-                    percent={user ? Math.min((7 / 10) * 100, 100) : 0}
-                    strokeColor="#0ea5e9"
-                  />
-                  <Text className="text-xs text-gray-500">
-                    {user ? "7/10 o'yin" : "0/10 o'yin"}
-                  </Text>
-                </div>
-              </Card>
-            </Col>
-            <Col xs={24} md={8}>
-              <Card className="bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200">
-                <div className="text-center">
-                  <div className="text-3xl mb-2">⚡</div>
-                  <Title level={5}>Tezkor Fikr</Title>
-                  <Text className="text-gray-600 block mb-3">
-                    5 ta o'yinni 60 soniyada tugating
-                  </Text>
-                  <Progress
-                    percent={user ? Math.min((3 / 5) * 100, 100) : 0}
-                    strokeColor="#a855f7"
-                  />
-                  <Text className="text-xs text-gray-500">
-                    {user ? "3/5 o'yin" : "0/5 o'yin"}
-                  </Text>
-                </div>
-              </Card>
-            </Col>
-          </Row>
-        </Card>
       </motion.div>
     </div>
   );

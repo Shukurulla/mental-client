@@ -15,8 +15,10 @@ import {
   FaCog,
   FaEyeSlash,
   FaEye,
+  FaArrowLeft,
 } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import { gamesAPI } from "../../utils/api";
 import { useAuthStore } from "../../stores/authStore";
 import toast from "react-hot-toast";
@@ -24,13 +26,13 @@ import toast from "react-hot-toast";
 const { Title, Text } = Typography;
 
 const HideAndSeekGame = () => {
+  const navigate = useNavigate();
   const { updateUserStats } = useAuthStore();
-  const [gameState, setGameState] = useState("idle"); // idle, showing, hiding, searching, result
+  const [gameState, setGameState] = useState("idle"); // idle, showing, searching, result
   const [level, setLevel] = useState(1);
   const [grid, setGrid] = useState([]);
-  const [hiddenNumbers, setHiddenNumbers] = useState([]);
-  const [currentTarget, setCurrentTarget] = useState(1);
-  const [foundNumbers, setFoundNumbers] = useState([]);
+  const [hiddenCells, setHiddenCells] = useState([]);
+  const [foundCells, setFoundCells] = useState([]);
   const [score, setScore] = useState(0);
   const [lives, setLives] = useState(3);
   const [showTime, setShowTime] = useState(3);
@@ -38,7 +40,6 @@ const HideAndSeekGame = () => {
   const [gameStats, setGameStats] = useState({
     correct: 0,
     total: 0,
-    timeSpent: 0,
   });
   const [settings, setSettings] = useState({
     gridSize: 4,
@@ -48,7 +49,7 @@ const HideAndSeekGame = () => {
   });
   const [showSettings, setShowSettings] = useState(false);
 
-  // Generate game grid
+  // Generate random grid layout
   const generateGrid = useCallback(() => {
     const size = settings.gridSize;
     const totalCells = size * size;
@@ -57,33 +58,63 @@ const HideAndSeekGame = () => {
       totalCells - 2
     );
 
-    // Create grid with numbers
-    const newGrid = Array.from({ length: totalCells }, (_, i) => ({
-      id: i,
-      number: i + 1,
-      isHidden: false,
-      isFound: false,
+    // Create array of numbers 1 to totalCells
+    const numbers = Array.from({ length: totalCells }, (_, i) => i + 1);
+
+    // Shuffle the numbers randomly (Fisher-Yates shuffle)
+    for (let i = numbers.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [numbers[i], numbers[j]] = [numbers[j], numbers[i]];
+    }
+
+    // Create grid with shuffled numbers
+    const newGrid = numbers.map((number, index) => ({
+      id: index,
+      number: number,
       position: {
-        row: Math.floor(i / size),
-        col: i % size,
+        row: Math.floor(index / size),
+        col: index % size,
       },
     }));
 
-    // Randomly select numbers to hide
-    const shuffled = [...newGrid].sort(() => Math.random() - 0.5);
-    const toHide = shuffled.slice(0, numbersToHide);
+    // Randomly select cells to hide (select the smallest numbers for easy gameplay)
+    const sortedNumbers = [...numbers].sort((a, b) => a - b);
+    const numbersToHideList = sortedNumbers.slice(0, numbersToHide);
 
-    const hiddenNums = [];
-    toHide.forEach((cell) => {
-      cell.isHidden = true;
-      hiddenNums.push(cell.number);
+    // Find cells with these numbers and mark them as hidden
+    const hiddenCellsList = [];
+    newGrid.forEach((cell) => {
+      if (numbersToHideList.includes(cell.number)) {
+        hiddenCellsList.push({
+          id: cell.id,
+          number: cell.number,
+          position: cell.position,
+        });
+      }
     });
 
-    hiddenNums.sort((a, b) => a - b);
-    setHiddenNumbers(hiddenNums);
+    // Sort hidden cells by number for easier gameplay
+    hiddenCellsList.sort((a, b) => a.number - b.number);
+    setHiddenCells(hiddenCellsList);
 
     return newGrid;
   }, [level, settings.gridSize, settings.hiddenCount]);
+
+  // Back to games
+  const handleBack = () => {
+    if (gameState === "showing" || gameState === "searching") {
+      Modal.confirm({
+        title: "O'yinni tark etish",
+        content:
+          "Haqiqatan ham o'yinni tark etmoqchimisiz? Barcha progress yo'qoladi.",
+        okText: "Ha, tark etish",
+        cancelText: "Bekor qilish",
+        onOk: () => navigate("/games"),
+      });
+    } else {
+      navigate("/games");
+    }
+  };
 
   // Start new game
   const startGame = async () => {
@@ -91,26 +122,25 @@ const HideAndSeekGame = () => {
       const newGrid = generateGrid();
       setGrid(newGrid);
       setGameState("showing");
-      setCurrentTarget(1);
-      setFoundNumbers([]);
-      setScore(score);
+      setFoundCells([]);
       setShowTime(settings.showDuration / 1000);
       setStartTime(Date.now());
       setGameStats({
         correct: 0,
         total: 0,
-        timeSpent: 0,
       });
 
-      // Show numbers for a few seconds
-      showNumbers(newGrid);
+      toast.success("Raqamlarning joyini eslab qoling!");
+
+      // Show numbers for specified duration
+      showNumbers();
     } catch (error) {
       toast.error("O'yinni boshlashda xato yuz berdi");
     }
   };
 
   // Show numbers phase
-  const showNumbers = (grid) => {
+  const showNumbers = () => {
     let timeLeft = settings.showDuration / 1000;
 
     const timer = setInterval(() => {
@@ -119,39 +149,42 @@ const HideAndSeekGame = () => {
 
       if (timeLeft <= 0) {
         clearInterval(timer);
-        hideNumbers(grid);
+        setGameState("searching");
+        const firstTarget = hiddenCells[0];
+        toast.info(`${firstTarget.number} raqamini toping!`);
       }
-    }, 1000);
-  };
-
-  // Hide numbers phase
-  const hideNumbers = (grid) => {
-    setGameState("hiding");
-
-    // Hide the numbers with animation
-    setTimeout(() => {
-      setGameState("searching");
-      setCurrentTarget(hiddenNumbers[0]);
-      toast.info(`${hiddenNumbers[0]} raqamini toping!`);
     }, 1000);
   };
 
   // Handle cell click
   const handleCellClick = (cell) => {
     if (gameState !== "searching") return;
-    if (!cell.isHidden || cell.isFound) return;
 
-    const targetIndex = hiddenNumbers.indexOf(currentTarget);
+    // Check if this cell should be hidden and not found yet
+    const hiddenCell = hiddenCells.find((h) => h.id === cell.id);
+    const alreadyFound = foundCells.find((f) => f.id === cell.id);
 
-    if (cell.number === currentTarget) {
-      // Correct number found
-      const newFoundNumbers = [...foundNumbers, cell.number];
-      setFoundNumbers(newFoundNumbers);
+    if (!hiddenCell) {
+      // Clicked on a cell that shouldn't be hidden
+      toast.error("Bu raqam yashirilmagan!");
+      return;
+    }
 
-      const newGrid = grid.map((c) =>
-        c.id === cell.id ? { ...c, isFound: true } : c
-      );
-      setGrid(newGrid);
+    if (alreadyFound) {
+      // Already found this cell
+      toast.warning("Bu raqam allaqachon topilgan!");
+      return;
+    }
+
+    // Find the next number we need to find
+    const nextNumberToFind = hiddenCells
+      .filter((h) => !foundCells.find((f) => f.id === h.id))
+      .sort((a, b) => a.number - b.number)[0];
+
+    if (hiddenCell.number === nextNumberToFind.number) {
+      // Correct cell clicked
+      const newFoundCells = [...foundCells, hiddenCell];
+      setFoundCells(newFoundCells);
 
       const points = 50 + level * 10;
       setScore((prev) => prev + points);
@@ -165,24 +198,27 @@ const HideAndSeekGame = () => {
 
       toast.success(`To'g'ri! +${points} ball`);
 
-      // Check if all numbers found
-      if (newFoundNumbers.length === hiddenNumbers.length) {
+      // Check if all hidden cells found
+      if (newFoundCells.length === hiddenCells.length) {
         completeLevel();
       } else {
-        // Move to next number
-        const nextTarget = hiddenNumbers[targetIndex + 1];
-        setCurrentTarget(nextTarget);
-        toast.info(`Endi ${nextTarget} raqamini toping!`);
+        // Find next number to search
+        const nextTarget = hiddenCells
+          .filter((h) => !newFoundCells.find((f) => f.id === h.id))
+          .sort((a, b) => a.number - b.number)[0];
+        toast.info(`Endi ${nextTarget.number} raqamini toping!`);
       }
     } else {
-      // Wrong number
+      // Wrong cell clicked (correct hidden cell but wrong order)
       setLives((prev) => {
         const newLives = prev - 1;
         if (newLives <= 0) {
           endGame();
           return 0;
         }
-        toast.error(`Noto'g'ri! ${newLives} jon qoldi`);
+        toast.error(
+          `Noto'g'ri! Avval ${nextNumberToFind.number} raqamini toping. ${newLives} jon qoldi`
+        );
         return newLives;
       });
 
@@ -244,58 +280,90 @@ const HideAndSeekGame = () => {
     setScore(0);
     setLives(3);
     setGrid([]);
-    setHiddenNumbers([]);
-    setCurrentTarget(1);
-    setFoundNumbers([]);
+    setHiddenCells([]);
+    setFoundCells([]);
     setShowTime(3);
     setStartTime(null);
     setGameStats({
       correct: 0,
       total: 0,
-      timeSpent: 0,
     });
+  };
+
+  // Check if cell should be visible
+  const isCellVisible = (cell) => {
+    // During showing phase - all cells visible
+    if (gameState === "showing") return true;
+
+    // During searching phase - hidden cells are invisible unless found
+    if (gameState === "searching") {
+      const isHidden = hiddenCells.find((h) => h.id === cell.id);
+      const isFound = foundCells.find((f) => f.id === cell.id);
+      return !isHidden || isFound;
+    }
+
+    // In result phase - show all
+    return true;
+  };
+
+  // Get cell style
+  const getCellStyle = (cell) => {
+    const isHidden = hiddenCells.find((h) => h.id === cell.id);
+    const isFound = foundCells.find((f) => f.id === cell.id);
+    const isVisible = isCellVisible(cell);
+
+    // Next target highlighting
+    let isNextTarget = false;
+    if (gameState === "searching" && isHidden && !isFound) {
+      const nextTarget = hiddenCells
+        .filter((h) => !foundCells.find((f) => f.id === h.id))
+        .sort((a, b) => a.number - b.number)[0];
+      isNextTarget = nextTarget && nextTarget.id === cell.id;
+    }
+
+    return `
+      aspect-square border-2 rounded-lg cursor-pointer transition-all duration-300
+      flex items-center justify-center font-bold text-lg select-none
+      ${
+        isVisible
+          ? isFound
+            ? "bg-green-100 border-green-500 text-green-700"
+            : "bg-white border-gray-300 text-gray-800"
+          : "bg-gray-200 border-gray-400 text-transparent hover:bg-blue-50 hover:border-blue-300"
+      }
+      ${
+        isNextTarget
+          ? "animate-pulse ring-2 ring-yellow-400 border-yellow-500"
+          : ""
+      }
+    `;
   };
 
   // Render grid cell
   const renderCell = (cell) => {
-    const isVisible =
-      gameState === "showing" ||
-      (gameState === "searching" && !cell.isHidden) ||
-      cell.isFound;
-
-    const isTarget =
-      cell.number === currentTarget && cell.isHidden && !cell.isFound;
-    const isHiddenCell =
-      cell.isHidden && gameState === "searching" && !cell.isFound;
+    const isVisible = isCellVisible(cell);
+    const isHidden = hiddenCells.find((h) => h.id === cell.id);
+    const isFound = foundCells.find((f) => f.id === cell.id);
 
     return (
       <motion.div
         key={cell.id}
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
-        whileHover={{ scale: isHiddenCell ? 1.05 : 1 }}
-        whileTap={{ scale: isHiddenCell ? 0.95 : 1 }}
+        whileHover={{
+          scale: gameState === "searching" && !isVisible ? 1.05 : 1,
+        }}
+        whileTap={{ scale: gameState === "searching" && !isVisible ? 0.95 : 1 }}
         transition={{ delay: cell.id * 0.02 }}
-        className={`
-          aspect-square border-2 rounded-lg cursor-pointer transition-all duration-300
-          flex items-center justify-center font-bold text-lg select-none
-          ${
-            isVisible
-              ? "bg-white border-gray-300 text-gray-800"
-              : "bg-gray-200 border-gray-400 text-transparent"
-          }
-          ${isTarget ? "animate-pulse ring-2 ring-yellow-400" : ""}
-          ${cell.isFound ? "bg-green-100 border-green-500 text-green-700" : ""}
-          ${isHiddenCell ? "hover:bg-blue-50 hover:border-blue-300" : ""}
-        `}
+        className={getCellStyle(cell)}
         onClick={() => handleCellClick(cell)}
       >
         {isVisible && (
-          <span className={cell.isFound ? "line-through" : ""}>
-            {cell.number}
-          </span>
+          <span className={isFound ? "line-through" : ""}>{cell.number}</span>
         )}
-        {isHiddenCell && <FaEyeSlash className="text-gray-400 text-sm" />}
+        {!isVisible && gameState === "searching" && (
+          <FaEyeSlash className="text-gray-400 text-sm" />
+        )}
       </motion.div>
     );
   };
@@ -327,24 +395,35 @@ const HideAndSeekGame = () => {
         <Card className="text-center">
           <Statistic
             title="Topildi"
-            value={foundNumbers.length}
-            suffix={`/${hiddenNumbers.length}`}
+            value={foundCells.length}
+            suffix={`/${hiddenCells.length}`}
           />
         </Card>
       </div>
 
       {/* Current Target */}
-      {gameState === "searching" && (
+      {gameState === "searching" && hiddenCells.length > 0 && (
         <Card className="mb-6 text-center bg-yellow-50 border-yellow-200">
           <div className="flex items-center justify-center space-x-2">
             <FaEye className="text-yellow-600" />
             <Text className="text-lg font-medium">
-              Qidirilayotgan raqam:{" "}
-              <span className="text-2xl font-bold text-yellow-700">
-                {currentTarget}
+              Qidirilayotgan raqam:
+              <span className="text-2xl font-bold text-yellow-700 ml-2">
+                {
+                  hiddenCells
+                    .filter((h) => !foundCells.find((f) => f.id === h.id))
+                    .sort((a, b) => a.number - b.number)[0]?.number
+                }
               </span>
             </Text>
           </div>
+          <Text className="text-sm text-yellow-600 mt-2">
+            Yashiringan raqamlar:{" "}
+            {hiddenCells
+              .map((h) => h.number)
+              .sort((a, b) => a - b)
+              .join(", ")}
+          </Text>
         </Card>
       )}
 
@@ -361,8 +440,9 @@ const HideAndSeekGame = () => {
               <div className="text-6xl mb-4">🔍</div>
               <Title level={3}>Berkinchoq o'yinini boshlaylik!</Title>
               <Text className="text-gray-600 block mb-6 max-w-md">
-                Raqamlar bir necha soniya ko'rsatiladi, keyin ba'zilari
-                yashiriladi. Yashiringan raqamlarni tartib bo'yicha toping!
+                Raqamlar tasodifiy joylarda ko'rsatiladi, keyin ba'zilari
+                yashiriladi. Yashiringan raqamlarni kichikdan boshlab tartib
+                bo'yicha toping!
               </Text>
 
               {/* Game Instructions */}
@@ -374,7 +454,7 @@ const HideAndSeekGame = () => {
                       1. Kuzatish
                     </Text>
                     <Text className="text-xs text-blue-600 block">
-                      Raqamlarni yodlab oling
+                      Raqamlarning joyini yodlab oling
                     </Text>
                   </div>
                 </Card>
@@ -396,7 +476,7 @@ const HideAndSeekGame = () => {
                       3. Qidirish
                     </Text>
                     <Text className="text-xs text-green-600 block">
-                      Tartib bo'yicha toping
+                      Kichikdan boshlab tartib bo'yicha toping
                     </Text>
                   </div>
                 </Card>
@@ -431,7 +511,7 @@ const HideAndSeekGame = () => {
               animate={{ opacity: 1, scale: 1 }}
               className="text-center space-y-6"
             >
-              <Title level={3}>Raqamlarni eslab qoling!</Title>
+              <Title level={3}>Raqamlarning joyini eslab qoling!</Title>
               <div className="text-4xl font-bold text-blue-600 mb-4">
                 {showTime}
               </div>
@@ -455,28 +535,14 @@ const HideAndSeekGame = () => {
                 strokeColor="#3b82f6"
                 showInfo={false}
               />
-            </motion.div>
-          )}
 
-          {/* Hiding State */}
-          {gameState === "hiding" && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-center space-y-6"
-            >
-              <Title level={3}>Raqamlar yashirilmoqda...</Title>
-              <div className="text-4xl">🙈</div>
-
-              <div
-                className="grid gap-3 mx-auto"
-                style={{
-                  gridTemplateColumns: `repeat(${settings.gridSize}, 1fr)`,
-                  maxWidth: `${settings.gridSize * 70}px`,
-                }}
-              >
-                {grid.map(renderCell)}
-              </div>
+              <Text className="text-sm text-gray-600">
+                Yashiriladigan raqamlar:{" "}
+                {hiddenCells
+                  .map((h) => h.number)
+                  .sort((a, b) => a - b)
+                  .join(", ")}
+              </Text>
             </motion.div>
           )}
 
@@ -499,17 +565,19 @@ const HideAndSeekGame = () => {
                 {grid.map(renderCell)}
               </div>
 
-              <div className="text-center">
-                <Text className="text-gray-600">
-                  Yashiringan raqamlar: {hiddenNumbers.join(", ")}
-                </Text>
-              </div>
-
               <Progress
-                percent={(foundNumbers.length / hiddenNumbers.length) * 100}
+                percent={(foundCells.length / hiddenCells.length) * 100}
                 strokeColor="#22c55e"
                 className="max-w-md mx-auto"
               />
+
+              <Text className="text-sm text-gray-500">
+                Tartib:{" "}
+                {hiddenCells
+                  .map((h) => h.number)
+                  .sort((a, b) => a - b)
+                  .join(" → ")}
+              </Text>
 
               <div className="flex justify-center">
                 <Button icon={<FaStop />} onClick={endGame} className="px-6">
@@ -578,6 +646,14 @@ const HideAndSeekGame = () => {
                     Davom etish
                   </Button>
                 )}
+                <Button
+                  icon={<FaArrowLeft />}
+                  onClick={() => navigate("/games")}
+                  size="large"
+                  className="px-8 py-2 h-auto"
+                >
+                  O'yinlarga qaytish
+                </Button>
               </Space>
             </motion.div>
           )}

@@ -13,6 +13,7 @@ import {
   Avatar,
   Progress,
   Button,
+  message,
 } from "antd";
 import {
   LineChart,
@@ -43,21 +44,16 @@ import {
 } from "react-icons/fa";
 import { MdDashboard, MdAnalytics } from "react-icons/md";
 import { motion } from "framer-motion";
-import LoadingSpinner from "../common/LoadingSpinner";
+import { useAuthStore } from "../../stores/authStore";
+import axios from "axios";
 
 const { Title, Text } = Typography;
 const { TabPane } = Tabs;
 const { Option } = Select;
 
-// Colors for charts
-const colors = [
-  "#0088FE",
-  "#00C49F",
-  "#FFBB28",
-  "#FF8042",
-  "#8884D8",
-  "#82CA9D",
-];
+// API base URL
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 const StatCard = ({
   title,
@@ -84,8 +80,11 @@ const StatCard = ({
                 fontWeight: "bold",
               }}
             />
-            {trend && (
-              <Tag color={trend > 0 ? "green" : "red"} className="text-xs">
+            {trend !== undefined && (
+              <Tag
+                color={trend > 0 ? "green" : trend < 0 ? "red" : "default"}
+                className="text-xs"
+              >
                 {trend > 0 ? "+" : ""}
                 {trend}%
               </Tag>
@@ -101,102 +100,160 @@ const StatCard = ({
 );
 
 const AdminDashboard = () => {
+  const { token } = useAuthStore();
   const [loading, setLoading] = useState(true);
-  const [dashboardData, setDashboardData] = useState(null);
+  const [dashboardData, setDashboardData] = useState({
+    users: { total: 0, active: 0, newThisMonth: 0 },
+    games: { total: 0, thisWeek: 0, thisMonth: 0 },
+    scores: { highest: 0, average: 0 },
+    popularGames: [],
+    userActivity: [],
+  });
   const [selectedGame, setSelectedGame] = useState("all");
   const [userData, setUserData] = useState([]);
-  const [gameData, setGameData] = useState([]);
+  const [userPagination, setUserPagination] = useState({
+    current: 1,
+    pageSize: 10,
+    total: 0,
+  });
+  const [analyticsData, setAnalyticsData] = useState({
+    gameAnalytics: [],
+    userAnalytics: [],
+  });
+
+  // API headers with auth token
+  const getAuthHeaders = () => ({
+    headers: { Authorization: `Bearer ${token}` },
+  });
 
   useEffect(() => {
     loadDashboardData();
+    loadUsers();
+  }, []);
+
+  useEffect(() => {
+    if (selectedGame !== "all") {
+      loadGameAnalytics(selectedGame);
+    }
   }, [selectedGame]);
 
   const loadDashboardData = async () => {
     try {
       setLoading(true);
+      const response = await axios.get(
+        `${API_BASE_URL}/admin/dashboard`,
+        getAuthHeaders()
+      );
 
-      // Mock dashboard data
-      const mockDashboardData = {
-        totalUsers: 1248,
-        activeGames: 856,
-        dailyGames: 342,
-        topScore: 9850,
-      };
-
-      // Mock users data
-      const mockUsers = [
-        {
-          id: 1,
-          name: "Ahmadjon Karimov",
-          email: "ahmadjon@example.com",
-          avatar: null,
-          level: 12,
-          totalScore: 15420,
-          gamesPlayed: 247,
-          lastLogin: "2 soat oldin",
-          isActive: true,
-        },
-        {
-          id: 2,
-          name: "Malika Sultanova",
-          email: "malika@example.com",
-          avatar: null,
-          level: 15,
-          totalScore: 18950,
-          gamesPlayed: 312,
-          lastLogin: "1 soat oldin",
-          isActive: true,
-        },
-        {
-          id: 3,
-          name: "Bobur Mahmudov",
-          email: "bobur@example.com",
-          avatar: null,
-          level: 8,
-          totalScore: 9650,
-          gamesPlayed: 178,
-          lastLogin: "1 kun oldin",
-          isActive: false,
-        },
-        {
-          id: 4,
-          name: "Dilorom Karimova",
-          email: "dilorom@example.com",
-          avatar: null,
-          level: 10,
-          totalScore: 12340,
-          gamesPlayed: 203,
-          lastLogin: "3 soat oldin",
-          isActive: true,
-        },
-        {
-          id: 5,
-          name: "Jasur Normatov",
-          email: "jasur@example.com",
-          avatar: null,
-          level: 6,
-          totalScore: 7890,
-          gamesPlayed: 145,
-          lastLogin: "2 kun oldin",
-          isActive: true,
-        },
-      ];
-
-      setDashboardData(mockDashboardData);
-      setUserData(mockUsers);
-
-      // Sample chart data
-      setGameData([
-        { name: "Raqam xotirasi", value: 45, color: "#0088FE" },
-        { name: "Plitkalar", value: 30, color: "#00C49F" },
-        { name: "Schulte jadvali", value: 25, color: "#FFBB28" },
-        { name: "Matematik", value: 35, color: "#FF8042" },
-        { name: "Foizlar", value: 20, color: "#8884D8" },
-      ]);
+      if (response.data.success) {
+        setDashboardData(response.data.data);
+      }
     } catch (error) {
-      console.error("Error loading dashboard data:", error);
+      console.error("Dashboard ma'lumotlarini yuklashda xato:", error);
+      message.error("Dashboard ma'lumotlarini yuklashda xato yuz berdi");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadUsers = async (page = 1, pageSize = 10, filters = {}) => {
+    try {
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: pageSize.toString(),
+        ...filters,
+      });
+
+      const response = await axios.get(
+        `${API_BASE_URL}/admin/users?${params}`,
+        getAuthHeaders()
+      );
+
+      if (response.data.success) {
+        setUserData(response.data.data.users);
+        setUserPagination({
+          current: response.data.data.currentPage,
+          pageSize: pageSize,
+          total: response.data.data.total,
+        });
+      }
+    } catch (error) {
+      console.error("Foydalanuvchilarni yuklashda xato:", error);
+      message.error("Foydalanuvchilarni yuklashda xato yuz berdi");
+    }
+  };
+
+  const loadGameAnalytics = async (gameType) => {
+    try {
+      const response = await axios.get(
+        `${API_BASE_URL}/admin/analytics/${gameType}`,
+        getAuthHeaders()
+      );
+
+      if (response.data.success) {
+        setAnalyticsData((prev) => ({
+          ...prev,
+          gameAnalytics: response.data.data,
+        }));
+      }
+    } catch (error) {
+      console.error("O'yin analitikasini yuklashda xato:", error);
+      message.error("O'yin analitikasini yuklashda xato yuz berdi");
+    }
+  };
+
+  const handleUserAction = async (action, userId) => {
+    try {
+      switch (action) {
+        case "view":
+          const response = await axios.get(
+            `${API_BASE_URL}/admin/users/${userId}`,
+            getAuthHeaders()
+          );
+          if (response.data.success) {
+            // Modal ochish yoki boshqa sahifaga yo'naltirish
+            console.log("User details:", response.data.data);
+          }
+          break;
+        case "delete":
+          await axios.delete(
+            `${API_BASE_URL}/admin/users/${userId}`,
+            getAuthHeaders()
+          );
+          message.success("Foydalanuvchi muvaffaqiyatli o'chirildi");
+          loadUsers(userPagination.current, userPagination.pageSize);
+          break;
+        default:
+          break;
+      }
+    } catch (error) {
+      console.error("Foydalanuvchi amalini bajarishda xato:", error);
+      message.error("Amalni bajarishda xato yuz berdi");
+    }
+  };
+
+  const exportData = async (type) => {
+    try {
+      const response = await axios.get(
+        `${API_BASE_URL}/admin/export/${type}`,
+        getAuthHeaders()
+      );
+
+      // Faylni yuklab olish
+      const blob = new Blob([JSON.stringify(response.data, null, 2)], {
+        type: "application/json",
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${type}_export_${Date.now()}.json`;
+      link.click();
+      window.URL.revokeObjectURL(url);
+
+      message.success("Ma'lumotlar muvaffaqiyatli eksport qilindi");
+    } catch (error) {
+      console.error("Eksport qilishda xato:", error);
+      message.error("Eksport qilishda xato yuz berdi");
     }
   };
 
@@ -208,7 +265,9 @@ const AdminDashboard = () => {
       key: "name",
       render: (text, record) => (
         <div className="flex items-center space-x-3">
-          <Avatar size="small">{text?.charAt(0)}</Avatar>
+          <Avatar src={record.avatar} size="small">
+            {text?.charAt(0)}
+          </Avatar>
           <div>
             <div className="font-medium">{text}</div>
             <div className="text-xs text-gray-500">{record.email}</div>
@@ -226,19 +285,21 @@ const AdminDashboard = () => {
       title: "Umumiy ball",
       dataIndex: "totalScore",
       key: "totalScore",
-      render: (score) => score.toLocaleString(),
-      sorter: (a, b) => a.totalScore - b.totalScore,
+      render: (score) => score?.toLocaleString() || 0,
+      sorter: true,
     },
     {
       title: "O'yinlar soni",
       dataIndex: "gamesPlayed",
       key: "gamesPlayed",
-      sorter: (a, b) => a.gamesPlayed - b.gamesPlayed,
+      sorter: true,
     },
     {
       title: "Oxirgi kirish",
       dataIndex: "lastLogin",
       key: "lastLogin",
+      render: (date) =>
+        date ? new Date(date).toLocaleDateString() : "Hech qachon",
     },
     {
       title: "Status",
@@ -255,43 +316,42 @@ const AdminDashboard = () => {
       key: "actions",
       render: (_, record) => (
         <Space size="small">
-          <Button icon={<FaEye />} size="small" type="link" />
-          <Button icon={<FaEdit />} size="small" type="link" />
-          <Button icon={<FaTrash />} size="small" type="link" danger />
+          <Button
+            icon={<FaEye />}
+            size="small"
+            type="link"
+            onClick={() => handleUserAction("view", record._id)}
+          />
+          <Button
+            icon={<FaEdit />}
+            size="small"
+            type="link"
+            onClick={() => handleUserAction("edit", record._id)}
+          />
+          {record.role !== "admin" && (
+            <Button
+              icon={<FaTrash />}
+              size="small"
+              type="link"
+              danger
+              onClick={() => handleUserAction("delete", record._id)}
+            />
+          )}
         </Space>
       ),
     },
   ];
 
-  // Chart data for user activity
-  const userActivityData = [
-    { date: "01.01", users: 120, newUsers: 15, activeGames: 85 },
-    { date: "02.01", users: 132, newUsers: 22, activeGames: 92 },
-    { date: "03.01", users: 145, newUsers: 18, activeGames: 103 },
-    { date: "04.01", users: 156, newUsers: 25, activeGames: 110 },
-    { date: "05.01", users: 168, newUsers: 20, activeGames: 125 },
-    { date: "06.01", users: 175, newUsers: 16, activeGames: 130 },
-    { date: "07.01", users: 188, newUsers: 28, activeGames: 142 },
-  ];
-
-  const gamePerformanceData = [
-    { game: "Raqam xotirasi", avgScore: 85, totalPlays: 450 },
-    { game: "Plitkalar", avgScore: 72, totalPlays: 320 },
-    { game: "Schulte", avgScore: 68, totalPlays: 280 },
-    { game: "Matematik", avgScore: 75, totalPlays: 380 },
-    { game: "Foizlar", avgScore: 80, totalPlays: 220 },
-  ];
-
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[400px]">
-        <LoadingSpinner size="large" />
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500"></div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-7xl p-4 mx-auto space-y-6">
+    <div className="max-w-7xl mx-auto space-y-6">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
@@ -308,7 +368,11 @@ const AdminDashboard = () => {
           </Text>
         </div>
         <Space>
-          <Button icon={<FaDownload />} type="primary">
+          <Button
+            icon={<FaDownload />}
+            type="primary"
+            onClick={() => exportData("analytics")}
+          >
             Export
           </Button>
         </Space>
@@ -324,37 +388,37 @@ const AdminDashboard = () => {
           <Col xs={24} sm={12} xl={6}>
             <StatCard
               title="Umumiy foydalanuvchilar"
-              value={dashboardData?.totalUsers || 1248}
+              value={dashboardData.users?.total || 0}
               icon={FaUsers}
               color="blue"
-              trend={12}
+              trend={dashboardData.users?.growth}
             />
           </Col>
           <Col xs={24} sm={12} xl={6}>
             <StatCard
-              title="Faol o'yinlar"
-              value={dashboardData?.activeGames || 856}
+              title="Faol foydalanuvchilar"
+              value={dashboardData.users?.active || 0}
               icon={FaGamepad}
               color="green"
-              trend={8}
+              trend={dashboardData.users?.activeGrowth}
             />
           </Col>
           <Col xs={24} sm={12} xl={6}>
             <StatCard
-              title="Kunlik o'yinlar"
-              value={dashboardData?.dailyGames || 342}
+              title="Bu oydagi o'yinlar"
+              value={dashboardData.games?.thisMonth || 0}
               icon={FaChartLine}
               color="orange"
-              trend={-3}
+              trend={dashboardData.games?.growth}
             />
           </Col>
           <Col xs={24} sm={12} xl={6}>
             <StatCard
               title="Eng yuqori ball"
-              value={dashboardData?.topScore || 9850}
+              value={dashboardData.scores?.highest || 0}
               icon={FaTrophy}
               color="gold"
-              trend={5}
+              trend={dashboardData.scores?.growth}
             />
           </Col>
         </Row>
@@ -380,10 +444,10 @@ const AdminDashboard = () => {
             >
               <Row gutter={[24, 24]}>
                 {/* User Activity Chart */}
-                <Col xs={24} lg={14}>
+                <Col xs={24} lg={16}>
                   <Card title="Foydalanuvchi faolligi" className="h-full">
                     <ResponsiveContainer width="100%" height={300}>
-                      <AreaChart data={userActivityData}>
+                      <AreaChart data={dashboardData.userActivity || []}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="date" />
                         <YAxis />
@@ -391,75 +455,52 @@ const AdminDashboard = () => {
                         <Legend />
                         <Area
                           type="monotone"
-                          dataKey="users"
+                          dataKey="gamesPlayed"
                           stackId="1"
                           stroke="#8884d8"
                           fill="#8884d8"
-                          name="Jami foydalanuvchilar"
+                          name="O'yinlar soni"
                         />
                         <Area
                           type="monotone"
-                          dataKey="newUsers"
+                          dataKey="uniqueUsers"
                           stackId="1"
                           stroke="#82ca9d"
                           fill="#82ca9d"
-                          name="Yangi foydalanuvchilar"
+                          name="Noyob foydalanuvchilar"
                         />
                       </AreaChart>
                     </ResponsiveContainer>
                   </Card>
                 </Col>
 
-                {/* Game Distribution */}
-                <Col xs={24} lg={10}>
-                  <Card title="O'yinlar taqsimoti" className="h-full">
+                {/* Popular Games */}
+                <Col xs={24} lg={8}>
+                  <Card title="Mashhur o'yinlar" className="h-full">
                     <ResponsiveContainer width="100%" height={300}>
                       <PieChart>
                         <Pie
-                          data={gameData}
+                          data={dashboardData.popularGames || []}
                           cx="50%"
                           cy="50%"
                           outerRadius={80}
                           fill="#8884d8"
-                          dataKey="value"
-                          label={({ name, percent }) =>
-                            `${name}: ${(percent * 100).toFixed(0)}%`
+                          dataKey="count"
+                          label={({ _id, count, percent }) =>
+                            `${_id}: ${(percent * 100).toFixed(0)}%`
                           }
                         >
-                          {gameData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
+                          {(dashboardData.popularGames || []).map(
+                            (entry, index) => (
+                              <Cell
+                                key={`cell-${index}`}
+                                fill={`hsl(${index * 45}, 70%, 60%)`}
+                              />
+                            )
+                          )}
                         </Pie>
                         <Tooltip />
                       </PieChart>
-                    </ResponsiveContainer>
-                  </Card>
-                </Col>
-
-                {/* Game Performance */}
-                <Col xs={24}>
-                  <Card title="O'yinlar samaradorligi">
-                    <ResponsiveContainer width="100%" height={300}>
-                      <BarChart data={gamePerformanceData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="game" />
-                        <YAxis yAxisId="left" />
-                        <YAxis yAxisId="right" orientation="right" />
-                        <Tooltip />
-                        <Legend />
-                        <Bar
-                          yAxisId="left"
-                          dataKey="avgScore"
-                          fill="#8884d8"
-                          name="O'rtacha ball"
-                        />
-                        <Bar
-                          yAxisId="right"
-                          dataKey="totalPlays"
-                          fill="#82ca9d"
-                          name="Jami o'yinlar"
-                        />
-                      </BarChart>
                     </ResponsiveContainer>
                   </Card>
                 </Col>
@@ -483,33 +524,41 @@ const AdminDashboard = () => {
                     <Select
                       defaultValue="all"
                       style={{ width: 120 }}
-                      onChange={(value) => console.log("Filter:", value)}
+                      onChange={(value) =>
+                        loadUsers(1, userPagination.pageSize, { status: value })
+                      }
                     >
                       <Option value="all">Barchasi</Option>
                       <Option value="active">Faol</Option>
                       <Option value="inactive">Nofaol</Option>
-                      <Option value="new">Yangi</Option>
                     </Select>
                     <Select
                       defaultValue="all"
                       style={{ width: 150 }}
-                      onChange={(value) => console.log("Role:", value)}
+                      onChange={(value) =>
+                        loadUsers(1, userPagination.pageSize, { role: value })
+                      }
                     >
                       <Option value="all">Barcha rollar</Option>
                       <Option value="user">Foydalanuvchi</Option>
                       <Option value="admin">Admin</Option>
                     </Select>
                   </Space>
-                  <Button type="primary">Yangi foydalanuvchi</Button>
+                  <Button type="primary" onClick={() => exportData("users")}>
+                    Foydalanuvchilarni eksport qilish
+                  </Button>
                 </div>
 
                 {/* Users Table */}
                 <Table
                   columns={userColumns}
                   dataSource={userData}
-                  rowKey="id"
+                  rowKey="_id"
                   pagination={{
-                    pageSize: 10,
+                    ...userPagination,
+                    onChange: (page, pageSize) => {
+                      loadUsers(page, pageSize);
+                    },
                     showSizeChanger: true,
                     showQuickJumper: true,
                     showTotal: (total, range) =>
@@ -555,63 +604,81 @@ const AdminDashboard = () => {
                 </Col>
 
                 {/* Analytics Cards */}
-                <Col xs={24} sm={8}>
-                  <Card className="text-center">
-                    <Statistic
-                      title="O'rtacha ball"
-                      value={75.8}
-                      precision={1}
-                      valueStyle={{ color: "#3f8600" }}
-                      suffix="ball"
-                    />
-                  </Card>
-                </Col>
-                <Col xs={24} sm={8}>
-                  <Card className="text-center">
-                    <Statistic
-                      title="O'rtacha vaqt"
-                      value={45.2}
-                      precision={1}
-                      valueStyle={{ color: "#cf1322" }}
-                      suffix="soniya"
-                    />
-                  </Card>
-                </Col>
-                <Col xs={24} sm={8}>
-                  <Card className="text-center">
-                    <Statistic
-                      title="Aniqlik"
-                      value={87.3}
-                      precision={1}
-                      valueStyle={{ color: "#1890ff" }}
-                      suffix="%"
-                    />
-                  </Card>
-                </Col>
+                {analyticsData.gameAnalytics.basicStats && (
+                  <>
+                    <Col xs={24} sm={8}>
+                      <Card className="text-center">
+                        <Statistic
+                          title="O'rtacha ball"
+                          value={
+                            analyticsData.gameAnalytics.basicStats
+                              .averageScore || 0
+                          }
+                          precision={1}
+                          valueStyle={{ color: "#3f8600" }}
+                          suffix="ball"
+                        />
+                      </Card>
+                    </Col>
+                    <Col xs={24} sm={8}>
+                      <Card className="text-center">
+                        <Statistic
+                          title="Jami o'yinlar"
+                          value={
+                            analyticsData.gameAnalytics.basicStats.totalGames ||
+                            0
+                          }
+                          valueStyle={{ color: "#cf1322" }}
+                        />
+                      </Card>
+                    </Col>
+                    <Col xs={24} sm={8}>
+                      <Card className="text-center">
+                        <Statistic
+                          title="Noyob o'yinchilar"
+                          value={
+                            analyticsData.gameAnalytics.basicStats
+                              .uniquePlayers || 0
+                          }
+                          valueStyle={{ color: "#1890ff" }}
+                        />
+                      </Card>
+                    </Col>
+                  </>
+                )}
 
-                {/* Progress by Level */}
-                <Col xs={24}>
-                  <Card title="Daraja bo'yicha progress">
-                    <Row gutter={[16, 16]}>
-                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((level) => (
-                        <Col xs={24} sm={12} md={8} lg={6} key={level}>
-                          <div className="text-center p-4 border rounded-lg">
-                            <Text strong>Daraja {level}</Text>
-                            <Progress
-                              percent={Math.floor(Math.random() * 100)}
-                              size="small"
-                              className="mt-2"
-                            />
-                            <Text className="text-xs text-gray-500 block mt-1">
-                              {Math.floor(Math.random() * 50 + 10)}{" "}
-                              foydalanuvchi
-                            </Text>
-                          </div>
-                        </Col>
-                      ))}
-                    </Row>
-                  </Card>
-                </Col>
+                {/* Performance Over Time Chart */}
+                {analyticsData.gameAnalytics.performanceOverTime && (
+                  <Col xs={24}>
+                    <Card title="Vaqt bo'yicha ko'rsatkichlar">
+                      <ResponsiveContainer width="100%" height={300}>
+                        <LineChart
+                          data={analyticsData.gameAnalytics.performanceOverTime}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="_id.date" />
+                          <YAxis />
+                          <Tooltip />
+                          <Legend />
+                          <Line
+                            type="monotone"
+                            dataKey="avgScore"
+                            stroke="#8884d8"
+                            name="O'rtacha ball"
+                            strokeWidth={2}
+                          />
+                          <Line
+                            type="monotone"
+                            dataKey="gamesPlayed"
+                            stroke="#82ca9d"
+                            name="O'yinlar soni"
+                            strokeWidth={2}
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </Card>
+                  </Col>
+                )}
               </Row>
             </TabPane>
           </Tabs>

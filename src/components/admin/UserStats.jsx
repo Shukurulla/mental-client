@@ -10,14 +10,13 @@ import {
   Button,
   Input,
   Select,
-  DatePicker,
   Statistic,
-  Progress,
   Modal,
   Form,
   Space,
   Tooltip,
   Popconfirm,
+  message,
 } from "antd";
 import {
   FaUser,
@@ -31,16 +30,18 @@ import {
   FaUserPlus,
 } from "react-icons/fa";
 import { motion } from "framer-motion";
-import { adminAPI } from "../../utils/api";
-import { formatDate, formatScore, getRelativeTime } from "../../utils/helpers";
-import toast from "react-hot-toast";
+import { useAuthStore } from "../../stores/authStore";
+import axios from "axios";
 
 const { Title, Text } = Typography;
 const { Search } = Input;
 const { Option } = Select;
-const { RangePicker } = DatePicker;
+
+// API base URL
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 const UserStats = () => {
+  const { token } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [users, setUsers] = useState([]);
   const [pagination, setPagination] = useState({
@@ -51,104 +52,80 @@ const UserStats = () => {
   const [filters, setFilters] = useState({
     search: "",
     status: "all",
-    level: "all",
-    dateRange: [],
+    role: "all",
   });
   const [selectedUser, setSelectedUser] = useState(null);
   const [showUserModal, setShowUserModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editForm] = Form.useForm();
+  const [userStats, setUserStats] = useState({
+    total: 0,
+    active: 0,
+    averageLevel: 0,
+    totalGames: 0
+  });
+
+  // API headers with auth token
+  const getAuthHeaders = () => ({
+    headers: { Authorization: `Bearer ${token}` }
+  });
 
   useEffect(() => {
     loadUsers();
+    loadUserStatistics();
   }, [pagination.current, pagination.pageSize, filters]);
 
   const loadUsers = async () => {
     try {
       setLoading(true);
+      
+      const params = new URLSearchParams({
+        page: pagination.current.toString(),
+        limit: pagination.pageSize.toString(),
+        ...(filters.search && { search: filters.search }),
+        ...(filters.status !== "all" && { status: filters.status }),
+        ...(filters.role !== "all" && { role: filters.role }),
+      });
 
-      // Simulate API call with mock data
-      const mockUsers = [
-        {
-          id: 1,
-          name: "Ahmadjon Karimov",
-          email: "ahmadjon@example.com",
-          avatar: null,
-          level: 12,
-          totalScore: 15420,
-          gamesPlayed: 247,
-          lastLogin: "2024-01-15T14:30:00Z",
-          joinDate: "2023-08-12T10:00:00Z",
-          isActive: true,
-          role: "user",
-          avgGameTime: 145,
-          favoriteGame: "numberMemory",
-          achievements: 8,
-          streak: 12,
-        },
-        {
-          id: 2,
-          name: "Malika Sultanova",
-          email: "malika@example.com",
-          avatar: null,
-          level: 15,
-          totalScore: 18950,
-          gamesPlayed: 312,
-          lastLogin: "2024-01-15T16:45:00Z",
-          joinDate: "2023-07-20T15:30:00Z",
-          isActive: true,
-          role: "user",
-          avgGameTime: 132,
-          favoriteGame: "schulteTable",
-          achievements: 12,
-          streak: 25,
-        },
-        {
-          id: 3,
-          name: "Bobur Mahmudov",
-          email: "bobur@example.com",
-          avatar: null,
-          level: 8,
-          totalScore: 9650,
-          gamesPlayed: 178,
-          lastLogin: "2024-01-14T20:15:00Z",
-          joinDate: "2023-11-05T09:20:00Z",
-          isActive: true,
-          role: "user",
-          avgGameTime: 168,
-          favoriteGame: "mathSystems",
-          achievements: 5,
-          streak: 7,
-        },
-        {
-          id: 4,
-          name: "Admin User",
-          email: "admin@mentalmath.uz",
-          avatar: null,
-          level: 20,
-          totalScore: 25000,
-          gamesPlayed: 150,
-          lastLogin: "2024-01-15T18:00:00Z",
-          joinDate: "2023-06-01T00:00:00Z",
-          isActive: true,
-          role: "admin",
-          avgGameTime: 120,
-          favoriteGame: "all",
-          achievements: 20,
-          streak: 50,
-        },
-      ];
+      const response = await axios.get(
+        `${API_BASE_URL}/admin/users?${params}`, 
+        getAuthHeaders()
+      );
 
-      setUsers(mockUsers);
-      setPagination((prev) => ({
-        ...prev,
-        total: mockUsers.length,
-      }));
+      if (response.data.success) {
+        setUsers(response.data.data.users);
+        setPagination(prev => ({
+          ...prev,
+          total: response.data.data.total,
+          current: response.data.data.currentPage
+        }));
+      }
     } catch (error) {
       console.error("Foydalanuvchilarni yuklashda xato:", error);
-      toast.error("Foydalanuvchilarni yuklashda xato yuz berdi");
+      message.error("Foydalanuvchilarni yuklashda xato yuz berdi");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadUserStatistics = async () => {
+    try {
+      const response = await axios.get(
+        `${API_BASE_URL}/admin/dashboard`, 
+        getAuthHeaders()
+      );
+
+      if (response.data.success) {
+        const data = response.data.data;
+        setUserStats({
+          total: data.users?.total || 0,
+          active: data.users?.active || 0,
+          averageLevel: data.users?.averageLevel || 0,
+          totalGames: data.games?.total || 0
+        });
+      }
+    } catch (error) {
+      console.error("User statistics yuklashda xato:", error);
     }
   };
 
@@ -156,52 +133,106 @@ const UserStats = () => {
     try {
       switch (action) {
         case "view":
-          const user = users.find((u) => u.id === userId);
-          setSelectedUser(user);
-          setShowUserModal(true);
+          const userResponse = await axios.get(
+            `${API_BASE_URL}/admin/users/${userId}`, 
+            getAuthHeaders()
+          );
+          if (userResponse.data.success) {
+            setSelectedUser(userResponse.data.data.user);
+            setShowUserModal(true);
+          }
           break;
         case "edit":
-          const editUser = users.find((u) => u.id === userId);
-          setSelectedUser(editUser);
-          editForm.setFieldsValue(editUser);
-          setShowEditModal(true);
+          const editResponse = await axios.get(
+            `${API_BASE_URL}/admin/users/${userId}`, 
+            getAuthHeaders()
+          );
+          if (editResponse.data.success) {
+            const user = editResponse.data.data.user;
+            setSelectedUser(user);
+            editForm.setFieldsValue(user);
+            setShowEditModal(true);
+          }
           break;
         case "toggle":
-          // Toggle user active status
-          setUsers((prev) =>
-            prev.map((user) =>
-              user.id === userId ? { ...user, isActive: !user.isActive } : user
-            )
+          const user = users.find(u => u._id === userId);
+          const updateResponse = await axios.put(
+            `${API_BASE_URL}/admin/users/${userId}`,
+            { isActive: !user.isActive },
+            getAuthHeaders()
           );
-          toast.success("Foydalanuvchi holati o'zgartirildi");
+          if (updateResponse.data.success) {
+            message.success("Foydalanuvchi holati o'zgartirildi");
+            loadUsers();
+          }
           break;
         case "delete":
-          // Remove user from list
-          setUsers((prev) => prev.filter((user) => user.id !== userId));
-          toast.success("Foydalanuvchi o'chirildi");
+          await axios.delete(
+            `${API_BASE_URL}/admin/users/${userId}`, 
+            getAuthHeaders()
+          );
+          message.success("Foydalanuvchi o'chirildi");
+          loadUsers();
           break;
       }
     } catch (error) {
       console.error("Foydalanuvchi amalini bajarishda xato:", error);
-      toast.error("Amalni bajarishda xato yuz berdi");
+      message.error("Amalni bajarishda xato yuz berdi");
     }
   };
 
   const handleEditUser = async (values) => {
     try {
-      // Update user in the list
-      setUsers((prev) =>
-        prev.map((user) =>
-          user.id === selectedUser.id ? { ...user, ...values } : user
-        )
+      const response = await axios.put(
+        `${API_BASE_URL}/admin/users/${selectedUser._id}`,
+        values,
+        getAuthHeaders()
       );
 
-      setShowEditModal(false);
-      toast.success("Foydalanuvchi ma'lumotlari yangilandi");
+      if (response.data.success) {
+        message.success("Foydalanuvchi ma'lumotlari yangilandi");
+        setShowEditModal(false);
+        loadUsers();
+      }
     } catch (error) {
       console.error("Foydalanuvchini yangilashda xato:", error);
-      toast.error("Yangilashda xato yuz berdi");
+      message.error("Yangilashda xato yuz berdi");
     }
+  };
+
+  const exportUsers = async () => {
+    try {
+      const response = await axios.get(
+        `${API_BASE_URL}/admin/export/users`, 
+        getAuthHeaders()
+      );
+      
+      // Faylni yuklab olish
+      const blob = new Blob([JSON.stringify(response.data, null, 2)], {
+        type: 'application/json'
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `users_export_${Date.now()}.json`;
+      link.click();
+      window.URL.revokeObjectURL(url);
+      
+      message.success("Foydalanuvchilar muvaffaqiyatli eksport qilindi");
+    } catch (error) {
+      console.error("Eksport qilishda xato:", error);
+      message.error("Eksport qilishda xato yuz berdi");
+    }
+  };
+
+  const handleSearch = (value) => {
+    setFilters(prev => ({ ...prev, search: value }));
+    setPagination(prev => ({ ...prev, current: 1 }));
+  };
+
+  const handleFilterChange = (type, value) => {
+    setFilters(prev => ({ ...prev, [type]: value }));
+    setPagination(prev => ({ ...prev, current: 1 }));
   };
 
   const columns = [
@@ -214,7 +245,7 @@ const UserStats = () => {
           <Avatar
             src={record.avatar}
             icon={<FaUser />}
-            className={record.role === "admin" ? "border-2 border-gold" : ""}
+            className={record.role === "admin" ? "border-2 border-yellow-400" : ""}
           />
           <div>
             <div className="font-medium flex items-center space-x-2">
@@ -246,34 +277,42 @@ const UserStats = () => {
               : "green"
           }
         >
-          {level}
+          {level || 1}
         </Tag>
       ),
-      sorter: (a, b) => a.level - b.level,
+      sorter: true,
     },
     {
       title: "Umumiy ball",
       dataIndex: "totalScore",
       key: "totalScore",
-      render: (score) => formatScore(score),
-      sorter: (a, b) => a.totalScore - b.totalScore,
+      render: (score) => (score || 0).toLocaleString(),
+      sorter: true,
     },
     {
       title: "O'yinlar",
       dataIndex: "gamesPlayed",
       key: "gamesPlayed",
-      sorter: (a, b) => a.gamesPlayed - b.gamesPlayed,
+      render: (games) => games || 0,
+      sorter: true,
     },
     {
       title: "Oxirgi kirish",
       dataIndex: "lastLogin",
       key: "lastLogin",
-      render: (date) => (
-        <Tooltip title={formatDate(date)}>
-          <span>{getRelativeTime(date)}</span>
-        </Tooltip>
-      ),
-      sorter: (a, b) => new Date(a.lastLogin) - new Date(b.lastLogin),
+      render: (date) => {
+        if (!date) return "Hech qachon";
+        const loginDate = new Date(date);
+        const now = new Date();
+        const diffTime = Math.abs(now - loginDate);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        if (diffDays === 1) return "Bugun";
+        if (diffDays === 2) return "Kecha";
+        if (diffDays <= 7) return `${diffDays} kun oldin`;
+        return loginDate.toLocaleDateString();
+      },
+      sorter: true,
     },
     {
       title: "Holat",
@@ -299,7 +338,7 @@ const UserStats = () => {
               icon={<FaEye />}
               size="small"
               type="link"
-              onClick={() => handleUserAction("view", record.id)}
+              onClick={() => handleUserAction("view", record._id)}
             />
           </Tooltip>
           <Tooltip title="Tahrirlash">
@@ -307,7 +346,7 @@ const UserStats = () => {
               icon={<FaEdit />}
               size="small"
               type="link"
-              onClick={() => handleUserAction("edit", record.id)}
+              onClick={() => handleUserAction("edit", record._id)}
             />
           </Tooltip>
           <Tooltip title={record.isActive ? "Bloklash" : "Aktivlashtirish"}>
@@ -315,7 +354,7 @@ const UserStats = () => {
               icon={record.isActive ? <FaBan /> : <FaUnlock />}
               size="small"
               type="link"
-              onClick={() => handleUserAction("toggle", record.id)}
+              onClick={() => handleUserAction("toggle", record._id)}
               className={record.isActive ? "text-orange-500" : "text-green-500"}
             />
           </Tooltip>
@@ -323,7 +362,7 @@ const UserStats = () => {
             <Tooltip title="O'chirish">
               <Popconfirm
                 title="Foydalanuvchini o'chirishni tasdiqlaysizmi?"
-                onConfirm={() => handleUserAction("delete", record.id)}
+                onConfirm={() => handleUserAction("delete", record._id)}
                 okText="Ha"
                 cancelText="Yo'q"
               >
@@ -336,21 +375,6 @@ const UserStats = () => {
     },
   ];
 
-  const filteredUsers = users.filter((user) => {
-    if (
-      filters.search &&
-      !user.name.toLowerCase().includes(filters.search.toLowerCase()) &&
-      !user.email.toLowerCase().includes(filters.search.toLowerCase())
-    ) {
-      return false;
-    }
-    if (filters.status !== "all") {
-      if (filters.status === "active" && !user.isActive) return false;
-      if (filters.status === "inactive" && user.isActive) return false;
-    }
-    return true;
-  });
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -360,7 +384,9 @@ const UserStats = () => {
           <Button icon={<FaUserPlus />} type="primary">
             Yangi foydalanuvchi
           </Button>
-          <Button icon={<FaDownload />}>Eksport</Button>
+          <Button icon={<FaDownload />} onClick={exportUsers}>
+            Eksport
+          </Button>
         </Space>
       </div>
 
@@ -375,7 +401,7 @@ const UserStats = () => {
             <Card className="text-center">
               <Statistic
                 title="Jami foydalanuvchilar"
-                value={users.length}
+                value={userStats.total}
                 prefix="👥"
                 valueStyle={{ color: "#1890ff" }}
               />
@@ -391,7 +417,7 @@ const UserStats = () => {
             <Card className="text-center">
               <Statistic
                 title="Faol foydalanuvchilar"
-                value={users.filter((u) => u.isActive).length}
+                value={userStats.active}
                 prefix="✅"
                 valueStyle={{ color: "#52c41a" }}
               />
@@ -407,9 +433,8 @@ const UserStats = () => {
             <Card className="text-center">
               <Statistic
                 title="O'rtacha daraja"
-                value={(
-                  users.reduce((sum, u) => sum + u.level, 0) / users.length
-                ).toFixed(1)}
+                value={userStats.averageLevel}
+                precision={1}
                 prefix="⭐"
                 valueStyle={{ color: "#faad14" }}
               />
@@ -425,7 +450,7 @@ const UserStats = () => {
             <Card className="text-center">
               <Statistic
                 title="Jami o'yinlar"
-                value={users.reduce((sum, u) => sum + u.gamesPlayed, 0)}
+                value={userStats.totalGames}
                 prefix="🎮"
                 valueStyle={{ color: "#722ed1" }}
               />
@@ -441,18 +466,15 @@ const UserStats = () => {
             <Search
               placeholder="Ism yoki email bo'yicha qidirish..."
               value={filters.search}
-              onChange={(e) =>
-                setFilters((prev) => ({ ...prev, search: e.target.value }))
-              }
+              onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+              onSearch={handleSearch}
               allowClear
             />
           </Col>
           <Col xs={12} sm={4}>
             <Select
               value={filters.status}
-              onChange={(value) =>
-                setFilters((prev) => ({ ...prev, status: value }))
-              }
+              onChange={(value) => handleFilterChange('status', value)}
               style={{ width: "100%" }}
             >
               <Option value="all">Barchasi</Option>
@@ -462,28 +484,14 @@ const UserStats = () => {
           </Col>
           <Col xs={12} sm={4}>
             <Select
-              value={filters.level}
-              onChange={(value) =>
-                setFilters((prev) => ({ ...prev, level: value }))
-              }
+              value={filters.role}
+              onChange={(value) => handleFilterChange('role', value)}
               style={{ width: "100%" }}
             >
-              <Option value="all">Barcha darajalar</Option>
-              <Option value="1-5">1-5 daraja</Option>
-              <Option value="6-10">6-10 daraja</Option>
-              <Option value="11-15">11-15 daraja</Option>
-              <Option value="16+">16+ daraja</Option>
+              <Option value="all">Barcha rollar</Option>
+              <Option value="user">Foydalanuvchi</Option>
+              <Option value="admin">Admin</Option>
             </Select>
-          </Col>
-          <Col xs={24} sm={8}>
-            <RangePicker
-              value={filters.dateRange}
-              onChange={(dates) =>
-                setFilters((prev) => ({ ...prev, dateRange: dates }))
-              }
-              format="DD.MM.YYYY"
-              style={{ width: "100%" }}
-            />
           </Col>
         </Row>
       </Card>
@@ -497,13 +505,13 @@ const UserStats = () => {
         <Card>
           <Table
             columns={columns}
-            dataSource={filteredUsers}
-            rowKey="id"
+            dataSource={users}
+            rowKey="_id"
             loading={loading}
             pagination={{
               ...pagination,
               onChange: (page, pageSize) => {
-                setPagination((prev) => ({
+                setPagination(prev => ({
                   ...prev,
                   current: page,
                   pageSize: pageSize,
@@ -538,9 +546,7 @@ const UserStats = () => {
                 <Text className="text-gray-600">{selectedUser.email}</Text>
                 <div className="mt-1">
                   <Tag color={selectedUser.role === "admin" ? "gold" : "blue"}>
-                    {selectedUser.role === "admin"
-                      ? "Administrator"
-                      : "Foydalanuvchi"}
+                    {selectedUser.role === "admin" ? "Administrator" : "Foydalanuvchi"}
                   </Tag>
                 </div>
               </div>
@@ -548,36 +554,22 @@ const UserStats = () => {
 
             <Row gutter={[16, 16]}>
               <Col span={12}>
-                <Statistic title="Daraja" value={selectedUser.level} />
+                <Statistic title="Daraja" value={selectedUser.level || 1} />
               </Col>
               <Col span={12}>
                 <Statistic
                   title="Umumiy ball"
-                  value={formatScore(selectedUser.totalScore)}
+                  value={(selectedUser.totalScore || 0).toLocaleString()}
                 />
               </Col>
               <Col span={12}>
                 <Statistic
                   title="O'yinlar soni"
-                  value={selectedUser.gamesPlayed}
+                  value={selectedUser.gamesPlayed || 0}
                 />
               </Col>
               <Col span={12}>
-                <Statistic title="Yutuqlar" value={selectedUser.achievements} />
-              </Col>
-              <Col span={12}>
-                <Statistic
-                  title="Eng uzun seriya"
-                  value={selectedUser.streak}
-                  suffix="kun"
-                />
-              </Col>
-              <Col span={12}>
-                <Statistic
-                  title="O'rtacha o'yin vaqti"
-                  value={selectedUser.avgGameTime}
-                  suffix="s"
-                />
+                <Statistic title="Yutuqlar" value={selectedUser.achievements?.length || 0} />
               </Col>
             </Row>
 
@@ -585,16 +577,17 @@ const UserStats = () => {
               <Title level={5}>Qo'shimcha ma'lumotlar</Title>
               <div className="space-y-2">
                 <div className="flex justify-between">
-                  <Text>Sevimli o'yin:</Text>
-                  <Text strong>{selectedUser.favoriteGame}</Text>
-                </div>
-                <div className="flex justify-between">
                   <Text>Ro'yxatdan o'tgan sana:</Text>
-                  <Text>{formatDate(selectedUser.joinDate)}</Text>
+                  <Text>{new Date(selectedUser.createdAt).toLocaleDateString()}</Text>
                 </div>
                 <div className="flex justify-between">
                   <Text>Oxirgi kirish:</Text>
-                  <Text>{formatDate(selectedUser.lastLogin)}</Text>
+                  <Text>
+                    {selectedUser.lastLogin 
+                      ? new Date(selectedUser.lastLogin).toLocaleDateString()
+                      : "Hech qachon"
+                    }
+                  </Text>
                 </div>
                 <div className="flex justify-between">
                   <Text>Holat:</Text>
@@ -652,9 +645,9 @@ const UserStats = () => {
               <Option value="admin">Administrator</Option>
             </Select>
           </Form.Item>
-          <Form name="isActive" label="Holat" valuePropName="checked">
+          <Form.Item name="isActive" label="Holat" valuePropName="checked">
             <input type="checkbox" /> Faol
-          </Form>
+          </Form.Item>
         </Form>
       </Modal>
     </div>
