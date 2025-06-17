@@ -235,61 +235,6 @@ const Login = () => {
           </div>
 
           {/* Demo Account */}
-          <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <div className="flex justify-between items-center mb-3">
-              <Text className="text-blue-800 text-sm font-medium">
-                Demo hisobni sinab ko'ring:
-              </Text>
-              <Button
-                type="link"
-                size="small"
-                onClick={handleDemoLogin}
-                className="text-blue-600 hover:text-blue-700 p-0 h-auto"
-              >
-                To'ldirish
-              </Button>
-            </div>
-            <Space direction="vertical" size="small" className="w-full">
-              <div className="flex items-center justify-between">
-                <Text className="text-blue-700 text-xs">📧 Email:</Text>
-                <Text className="text-blue-700 text-xs font-mono">
-                  demo@mentalmath.uz
-                </Text>
-              </div>
-              <div className="flex items-center justify-between">
-                <Text className="text-blue-700 text-xs">🔑 Parol:</Text>
-                <Text className="text-blue-700 text-xs font-mono">demo123</Text>
-              </div>
-            </Space>
-          </div>
-
-          {/* Admin Access Info */}
-          {process.env.NODE_ENV === "development" && (
-            <div className="mt-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
-              <Title level={5} className="mb-3 text-purple-800">
-                👑 Admin Panel:
-              </Title>
-              <div className="space-y-1 text-purple-700 text-xs">
-                <div className="flex items-center justify-between">
-                  <Text className="text-purple-700 text-xs">📧 Email:</Text>
-                  <Text className="text-purple-700 text-xs font-mono">
-                    admin@mentalmath.uz
-                  </Text>
-                </div>
-                <div className="flex items-center justify-between">
-                  <Text className="text-purple-700 text-xs">🔑 Parol:</Text>
-                  <Text className="text-purple-700 text-xs font-mono">
-                    admin123
-                  </Text>
-                </div>
-                <div className="mt-2 text-center">
-                  <Text className="text-purple-600 text-xs">
-                    Yuqoridagi "Admin sifatida kirish" tugmasini bosing
-                  </Text>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Quick Benefits */}
           <div className="mt-6 p-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg border border-green-200">
