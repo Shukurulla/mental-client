@@ -1,5 +1,17 @@
-import { Link } from "react-router-dom";
-import { Card, Typography, Tag, Progress, Button, Space, Tooltip } from "antd";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  Card,
+  Row,
+  Col,
+  Typography,
+  Tag,
+  Progress,
+  Button,
+  Space,
+  Input,
+  Select,
+} from "antd";
 import {
   FaBrain,
   FaTh,
@@ -7,19 +19,28 @@ import {
   FaTable,
   FaCalculator,
   FaDivide,
-  FaFractionSlash,
+  FaFistRaised,
   FaPercentage,
   FaBookOpen,
   FaEyeSlash,
   FaPlay,
   FaStar,
-  FaTrophy,
-  FaClock,
-  FaFire,
+  FaSearch,
+  FaFlash,
+  FaCreditCard,
 } from "react-icons/fa";
 import { motion } from "framer-motion";
+import { useAuthStore } from "../stores/authStore";
+import LoadingSpinner from "../components/common/LoadingSpinner";
+import axios from "axios";
 
 const { Title, Text } = Typography;
+const { Search } = Input;
+const { Option } = Select;
+
+// API base URL
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 // Game icons mapping
 const gameIcons = {
@@ -30,65 +51,44 @@ const gameIcons = {
   doubleSchulte: FaTable,
   mathSystems: FaCalculator,
   gcdLcm: FaDivide,
-  fractions: FaFractionSlash,
+  fractions: FaFistRaised,
   percentages: FaPercentage,
   readingSpeed: FaBookOpen,
   hideAndSeek: FaEyeSlash,
+  // NEW GAMES
+  flashAnzan: FaFlash,
+  flashCards: FaCreditCard,
 };
 
 // Game colors
 const gameColors = {
-  numberMemory: { primary: "blue", gradient: "from-blue-400 to-blue-600" },
-  tileMemory: { primary: "green", gradient: "from-green-400 to-green-600" },
-  alphaNumMemory: {
-    primary: "purple",
-    gradient: "from-purple-400 to-purple-600",
-  },
-  schulteTable: {
-    primary: "orange",
-    gradient: "from-orange-400 to-orange-600",
-  },
-  doubleSchulte: { primary: "red", gradient: "from-red-400 to-red-600" },
-  mathSystems: { primary: "cyan", gradient: "from-cyan-400 to-cyan-600" },
-  gcdLcm: { primary: "pink", gradient: "from-pink-400 to-pink-600" },
-  fractions: { primary: "yellow", gradient: "from-yellow-400 to-yellow-600" },
-  percentages: { primary: "lime", gradient: "from-lime-400 to-lime-600" },
-  readingSpeed: {
-    primary: "indigo",
-    gradient: "from-indigo-400 to-indigo-600",
-  },
-  hideAndSeek: { primary: "gray", gradient: "from-gray-400 to-gray-600" },
+  numberMemory: "blue",
+  tileMemory: "green",
+  alphaNumMemory: "purple",
+  schulteTable: "orange",
+  doubleSchulte: "red",
+  mathSystems: "cyan",
+  gcdLcm: "magenta",
+  fractions: "gold",
+  percentages: "lime",
+  readingSpeed: "geekblue",
+  hideAndSeek: "volcano",
+  // NEW GAMES
+  flashAnzan: "pink",
+  flashCards: "yellow",
 };
 
-const GameCard = ({ game, userStats, onPlay, delay = 0 }) => {
+const GameCard = ({ game, userStats, onPlay }) => {
   const IconComponent = gameIcons[game.id] || FaBrain;
-  const colors = gameColors[game.id] || gameColors.numberMemory;
   const stats = userStats?.gameStats?.[game.id];
-
   const bestScore = stats?.bestScore || 0;
   const gamesPlayed = stats?.gamesPlayed || 0;
   const averageScore = stats?.averageScore || 0;
   const lastPlayed = stats?.lastPlayed;
 
-  // Calculate progress percentage
-  const maxPossibleScore = game.maxLevel * game.scoreMultiplier * 100;
-  const progressPercent = Math.min(
-    (averageScore / maxPossibleScore) * 100,
-    100
-  );
-
-  // Determine difficulty level
-  const getDifficultyLevel = () => {
-    if (game.maxLevel <= 5) return { level: "Oson", color: "green" };
-    if (game.maxLevel <= 15) return { level: "O'rta", color: "orange" };
-    return { level: "Qiyin", color: "red" };
-  };
-
-  const difficulty = getDifficultyLevel();
-
   // Format last played date
   const formatLastPlayed = (date) => {
-    if (!date) return null;
+    if (!date) return "Hech qachon";
     const now = new Date();
     const played = new Date(date);
     const diffTime = Math.abs(now - played);
@@ -102,51 +102,42 @@ const GameCard = ({ game, userStats, onPlay, delay = 0 }) => {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay }}
       whileHover={{ y: -4, scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
-      className="h-full"
+      transition={{ duration: 0.2 }}
     >
       <Card
-        className="h-full bg-gradient-to-br from-white to-gray-50 border border-gray-200 hover:border-primary-300 hover:shadow-xl transition-all duration-300"
+        className="h-full bg-gradient-to-br from-white to-gray-50 border border-gray-200 hover:border-primary-300 hover:shadow-lg transition-all duration-300"
         bodyStyle={{ padding: "24px" }}
-        hoverable
       >
         <div className="flex flex-col h-full">
           {/* Game Header */}
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center space-x-3">
               <div
-                className={`w-12 h-12 rounded-lg bg-gradient-to-br ${colors.gradient} flex items-center justify-center shadow-lg`}
+                className={`w-12 h-12 rounded-lg bg-gradient-to-br from-${
+                  gameColors[game.id]
+                }-400 to-${
+                  gameColors[game.id]
+                }-600 flex items-center justify-center shadow-lg`}
               >
                 <IconComponent className="text-white text-xl" />
               </div>
               <div>
-                <Title level={4} className="mb-0 text-gray-800 line-clamp-1">
+                <Title level={4} className="mb-0 text-gray-800">
                   {game.name}
                 </Title>
-                <div className="flex items-center space-x-2 mt-1">
-                  <Tag color={difficulty.color} size="small">
-                    {difficulty.level}
-                  </Tag>
-                  <Tag color={colors.primary} size="small">
-                    Daraja {game.maxLevel}
-                  </Tag>
-                </div>
+                <Tag color={gameColors[game.id]} className="mt-1">
+                  Daraja {game.maxLevel}
+                </Tag>
               </div>
             </div>
-
-            {/* Best Score Badge */}
             {gamesPlayed > 0 && (
               <div className="text-right">
-                <Tooltip title="Eng yaxshi natija">
-                  <div className="flex items-center space-x-1 text-yellow-500">
-                    <FaTrophy className="text-xs" />
-                    <Text className="text-xs font-bold">{bestScore}</Text>
-                  </div>
-                </Tooltip>
+                <div className="flex items-center space-x-1 text-yellow-500">
+                  <FaStar className="text-xs" />
+                  <Text className="text-xs font-medium">{bestScore}</Text>
+                </div>
                 <Text className="text-xs text-gray-500">
                   {gamesPlayed} marta
                 </Text>
@@ -155,50 +146,31 @@ const GameCard = ({ game, userStats, onPlay, delay = 0 }) => {
           </div>
 
           {/* Game Description */}
-          <Text className="text-gray-600 mb-4 flex-1 line-clamp-2">
-            {game.description}
-          </Text>
+          <Text className="text-gray-600 mb-4 flex-1">{game.description}</Text>
 
-          {/* Stats Section */}
+          {/* Progress */}
           {gamesPlayed > 0 ? (
-            <div className="mb-4 space-y-3">
-              {/* Progress Bar */}
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <Text className="text-xs text-gray-500">Progress</Text>
-                  <Text className="text-xs text-gray-500">
-                    O'rtacha: {averageScore.toFixed(1)}
-                  </Text>
-                </div>
-                <Progress
-                  percent={progressPercent}
-                  strokeColor={{
-                    "0%":
-                      colors.primary === "blue"
-                        ? "#3b82f6"
-                        : `var(--ant-${colors.primary}-6)`,
-                    "100%": "#52c41a",
-                  }}
-                  size="small"
-                  showInfo={false}
-                  className="mb-2"
-                />
+            <div className="mb-4">
+              <div className="flex justify-between items-center mb-2">
+                <Text className="text-xs text-gray-500">Progress</Text>
+                <Text className="text-xs text-gray-500">
+                  O'rtacha: {averageScore.toFixed(1)}
+                </Text>
               </div>
-
-              {/* Additional Stats */}
-              <div className="flex justify-between items-center text-xs">
-                <div className="flex items-center space-x-1 text-gray-500">
-                  <FaClock className="text-xs" />
-                  <Text className="text-xs text-gray-500">
-                    {formatLastPlayed(lastPlayed) || "Hech qachon"}
-                  </Text>
-                </div>
-                {averageScore > bestScore * 0.8 && (
-                  <div className="flex items-center space-x-1 text-orange-500">
-                    <FaFire className="text-xs" />
-                    <Text className="text-xs text-orange-500">Hot</Text>
-                  </div>
+              <Progress
+                percent={Math.min(
+                  (averageScore / (game.maxLevel * game.scoreMultiplier)) * 100,
+                  100
                 )}
+                strokeColor={{
+                  "0%": gameColors[game.id],
+                  "100%": "#52c41a",
+                }}
+                size="small"
+                showInfo={false}
+              />
+              <div className="mt-2 text-xs text-gray-500">
+                Oxirgi o'yin: {formatLastPlayed(lastPlayed)}
               </div>
             </div>
           ) : (
@@ -212,47 +184,289 @@ const GameCard = ({ game, userStats, onPlay, delay = 0 }) => {
             </div>
           )}
 
-          {/* Action Buttons */}
-          <div className="space-y-2">
-            <Button
-              type="primary"
-              block
-              icon={<FaPlay />}
-              onClick={() => onPlay(game.id)}
-              className={`bg-gradient-to-r ${colors.gradient} border-none h-10 font-medium shadow-lg hover:shadow-xl transition-all duration-300`}
-              size="large"
-            >
-              O'ynash
-            </Button>
-
-            {/* Secondary Actions */}
-            {gamesPlayed > 0 && (
-              <div className="flex space-x-2">
-                <Link to={`/stats/${game.id}`} className="flex-1">
-                  <Button size="small" block className="text-xs">
-                    📊 Statistika
-                  </Button>
-                </Link>
-                <Link to={`/leaderboard?game=${game.id}`} className="flex-1">
-                  <Button size="small" block className="text-xs">
-                    🏆 Reyting
-                  </Button>
-                </Link>
-              </div>
-            )}
-          </div>
-
-          {/* Game Highlights */}
-          <div className="mt-3 pt-3 border-t border-gray-100">
-            <div className="flex justify-between text-xs text-gray-500">
-              <span>Max ball: {game.scoreMultiplier * game.maxLevel}</span>
-              <span>Kategori: Aqli o'yin</span>
-            </div>
-          </div>
+          {/* Play Button */}
+          <Button
+            type="primary"
+            block
+            icon={<FaPlay />}
+            onClick={() => onPlay(game.id)}
+            className="bg-gradient-to-r from-primary-500 to-secondary-500 border-none h-10 font-medium"
+          >
+            O'ynash
+          </Button>
         </div>
       </Card>
     </motion.div>
   );
 };
 
-export default GameCard;
+const Games = () => {
+  const { user, token } = useAuthStore();
+  const navigate = useNavigate();
+
+  const [games, setGames] = useState([]);
+  const [userStats, setUserStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortBy, setSortBy] = useState("name");
+  const [filterBy, setFilterBy] = useState("all");
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+
+      // Load games
+      const gamesResponse = await axios.get(`${API_BASE_URL}/games`);
+
+      // Load user stats if authenticated
+      let statsResponse = null;
+      if (token) {
+        try {
+          statsResponse = await axios.get(`${API_BASE_URL}/results/stats`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+        } catch (error) {
+          console.error("Error loading user stats:", error);
+        }
+      }
+
+      setGames(gamesResponse.data.games || []);
+      setUserStats(statsResponse?.data?.data?.user || null);
+    } catch (error) {
+      console.error("Error loading games:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePlay = (gameId) => {
+    // Navigate to specific game components for flash games
+    if (gameId === "flashAnzan") {
+      navigate("/games/flashAnzan");
+    } else if (gameId === "flashCards") {
+      navigate("/games/flashCards");
+    } else {
+      // Navigate to general game play page for other games
+      navigate(`/games/${gameId}`);
+    }
+  };
+
+  // Filter and sort games
+  const filteredGames = games
+    .filter((game) => {
+      const matchesSearch =
+        game.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        game.description.toLowerCase().includes(searchTerm.toLowerCase());
+
+      if (filterBy === "all") return matchesSearch;
+      if (filterBy === "played") {
+        const stats = userStats?.gameStats?.[game.id];
+        return matchesSearch && stats?.gamesPlayed > 0;
+      }
+      if (filterBy === "unplayed") {
+        const stats = userStats?.gameStats?.[game.id];
+        return matchesSearch && (!stats || stats.gamesPlayed === 0);
+      }
+      if (filterBy === "new") {
+        // Flash games are new
+        return (
+          matchesSearch &&
+          (game.id === "flashAnzan" || game.id === "flashCards")
+        );
+      }
+      return matchesSearch;
+    })
+    .sort((a, b) => {
+      if (sortBy === "name") return a.name.localeCompare(b.name);
+      if (sortBy === "difficulty") return a.maxLevel - b.maxLevel;
+      if (sortBy === "played") {
+        const aStats = userStats?.gameStats?.[a.id]?.gamesPlayed || 0;
+        const bStats = userStats?.gameStats?.[b.id]?.gamesPlayed || 0;
+        return bStats - aStats;
+      }
+      return 0;
+    });
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-[400px]">
+        <LoadingSpinner size="large" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-7xl mx-auto">
+      {/* Header */}
+      <div className="text-center mb-8">
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <Title level={1} className="text-gray-800 mb-4">
+            🎮 Mental Arifmetika O'yinlari
+          </Title>
+          <Text className="text-lg text-gray-600 max-w-2xl mx-auto block">
+            Aqlingizni mashq qiling va matematik qobiliyatlaringizni
+            rivojlantiring
+          </Text>
+        </motion.div>
+      </div>
+
+      {/* User Overview */}
+      {userStats && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+          className="mb-8"
+        >
+          <Card className="bg-gradient-to-r from-primary-50 to-secondary-50 border border-primary-200">
+            <Row gutter={24}>
+              <Col xs={24} sm={6} className="text-center">
+                <div className="text-3xl font-bold text-primary-600">
+                  {userStats.level}
+                </div>
+                <div className="text-gray-600">Daraja</div>
+              </Col>
+              <Col xs={24} sm={6} className="text-center">
+                <div className="text-3xl font-bold text-secondary-600">
+                  {userStats.totalScore?.toLocaleString() || 0}
+                </div>
+                <div className="text-gray-600">Umumiy ball</div>
+              </Col>
+              <Col xs={24} sm={6} className="text-center">
+                <div className="text-3xl font-bold text-success-600">
+                  {userStats.gamesPlayed}
+                </div>
+                <div className="text-gray-600">O'ynagan o'yinlar</div>
+              </Col>
+              <Col xs={24} sm={6} className="text-center">
+                <div className="text-3xl font-bold text-warning-600">
+                  {Math.round(userStats.rankingScore || 0).toLocaleString()}
+                </div>
+                <div className="text-gray-600">Reyting bali</div>
+              </Col>
+            </Row>
+          </Card>
+        </motion.div>
+      )}
+
+      {/* Filters and Search */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.2 }}
+        className="mb-6"
+      >
+        <Card>
+          <Row gutter={16} align="middle">
+            <Col xs={24} sm={12} lg={8}>
+              <Search
+                placeholder="O'yinlarni qidirish..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                prefix={<FaSearch className="text-gray-400" />}
+                allowClear
+              />
+            </Col>
+            <Col xs={12} sm={6} lg={4}>
+              <Select
+                value={sortBy}
+                onChange={setSortBy}
+                style={{ width: "100%" }}
+                placeholder="Saralash"
+              >
+                <Option value="name">Nom bo'yicha</Option>
+                <Option value="difficulty">Qiyinlik bo'yicha</Option>
+                <Option value="played">O'ynalgan bo'yicha</Option>
+              </Select>
+            </Col>
+            <Col xs={12} sm={6} lg={4}>
+              <Select
+                value={filterBy}
+                onChange={setFilterBy}
+                style={{ width: "100%" }}
+                placeholder="Filter"
+              >
+                <Option value="all">Barchasi</Option>
+                <Option value="played">O'ynalgan</Option>
+                <Option value="unplayed">O'ynalmagan</Option>
+                <Option value="new">🆕 Yangi o'yinlar</Option>
+              </Select>
+            </Col>
+          </Row>
+        </Card>
+      </motion.div>
+
+      {/* New Games Banner */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.3 }}
+        className="mb-6"
+      >
+        <Card className="bg-gradient-to-r from-pink-50 to-yellow-50 border border-pink-200">
+          <div className="text-center">
+            <Title level={4} className="text-pink-600 mb-2">
+              🆕 Yangi O'yinlar!
+            </Title>
+            <Text className="text-gray-600">
+              Flash Anzan va Flash Cards o'yinlari qo'shildi. Tez hisoblash
+              qobiliyatingizni sinab ko'ring!
+            </Text>
+          </div>
+        </Card>
+      </motion.div>
+
+      {/* Games Grid */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5, delay: 0.4 }}
+      >
+        <Row gutter={[24, 24]}>
+          {filteredGames.map((game, index) => (
+            <Col xs={24} sm={12} lg={8} xl={6} key={game.id}>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: index * 0.1 }}
+              >
+                <GameCard
+                  game={game}
+                  userStats={userStats}
+                  onPlay={handlePlay}
+                />
+              </motion.div>
+            </Col>
+          ))}
+        </Row>
+      </motion.div>
+
+      {/* No Results */}
+      {filteredGames.length === 0 && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="text-center py-16"
+        >
+          <div className="text-6xl mb-4">🔍</div>
+          <Title level={3} className="text-gray-600">
+            O'yinlar topilmadi
+          </Title>
+          <Text className="text-gray-500">
+            Qidiruv shartlarini o'zgartiring yoki boshqa filtrlardan foydalaning
+          </Text>
+        </motion.div>
+      )}
+    </div>
+  );
+};
+
+export default Games;

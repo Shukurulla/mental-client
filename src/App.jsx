@@ -19,8 +19,12 @@ import GamePlay from "./pages/GamePlay";
 import Profile from "./pages/Profile";
 import Leaderboard from "./pages/Leaderboard";
 
-// Admin Components - to'g'ri import
+// Admin Components
 import AdminDashboard from "./components/admin/Dashboard";
+
+// NEW: Flash Games Components
+import FlashAnzanGame from "./components/games/FlashAnzanGame";
+import FlashCardsGame from "./components/games/FlashCardsGame";
 
 import "./styles/globals.css";
 import Layout from "./components/Layout";
@@ -114,6 +118,24 @@ function App() {
                 }
               />
             </Route>
+
+            {/* NEW: Flash Games Routes (without layout for full-screen experience) */}
+            <Route
+              path="/games/flashAnzan"
+              element={
+                <ProtectedRoute>
+                  <FlashAnzanGame />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/games/flashCards"
+              element={
+                <ProtectedRoute>
+                  <FlashCardsGame />
+                </ProtectedRoute>
+              }
+            />
 
             {/* Admin routes - alohida layout siz */}
             <Route
