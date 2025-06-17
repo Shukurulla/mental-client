@@ -32,6 +32,8 @@ const ReadingSpeedGame = lazy(() =>
 const HideAndSeekGame = lazy(() =>
   import("../components/games/HideAndSeekGame")
 );
+const FlashAnzanGame = lazy(() => import("../components/games/FlashAnzanGame"));
+const FlashCardsGame = lazy(() => import("../components/games/FlashCardsGame"));
 
 const GamePlay = () => {
   const { gameType } = useParams();
@@ -50,6 +52,8 @@ const GamePlay = () => {
     "percentages",
     "readingSpeed",
     "hideAndSeek",
+    "flashAnzan",
+    "flashCards",
   ];
 
   if (!validGameTypes.includes(gameType)) {
@@ -81,6 +85,10 @@ const GamePlay = () => {
         return <ReadingSpeedGame />;
       case "hideAndSeek":
         return <HideAndSeekGame />;
+      case "flashAnzan":
+        return <FlashAnzanGame />;
+      case "flashCards":
+        return <FlashCardsGame />;
       default:
         return <Navigate to="/games" replace />;
     }

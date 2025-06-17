@@ -26,6 +26,8 @@ import {
   FaPlay,
   FaStar,
   FaSearch,
+  FaBolt,
+  FaIdCard,
 } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { gamesAPI, resultsAPI } from "../utils/api";
@@ -49,6 +51,8 @@ const gameIcons = {
   percentages: FaPercentage,
   readingSpeed: FaBookOpen,
   hideAndSeek: FaEyeSlash,
+  flashAnzan: FaBolt,
+  flashCards: FaIdCard,
 };
 
 // Game colors
@@ -64,6 +68,8 @@ const gameColors = {
   percentages: "lime",
   readingSpeed: "geekblue",
   hideAndSeek: "volcano",
+  flashAnzan: "processing",
+  flashCards: "default",
 };
 
 const GameCard = ({ game, userStats, onPlay }) => {

@@ -570,7 +570,7 @@ const AdminDashboard = () => {
             </TabPane>
 
             {/* Analytics Tab */}
-            <TabPane
+            {/* <TabPane
               tab={
                 <span>
                   <FaChartLine className="mr-2" />
@@ -580,7 +580,6 @@ const AdminDashboard = () => {
               key="analytics"
             >
               <Row gutter={[24, 24]}>
-                {/* Game Selection */}
                 <Col xs={24}>
                   <Card>
                     <Space size="large">
@@ -603,7 +602,6 @@ const AdminDashboard = () => {
                   </Card>
                 </Col>
 
-                {/* Analytics Cards */}
                 {analyticsData.gameAnalytics.basicStats && (
                   <>
                     <Col xs={24} sm={8}>
@@ -647,7 +645,6 @@ const AdminDashboard = () => {
                   </>
                 )}
 
-                {/* Performance Over Time Chart */}
                 {analyticsData.gameAnalytics.performanceOverTime && (
                   <Col xs={24}>
                     <Card title="Vaqt bo'yicha ko'rsatkichlar">
@@ -680,7 +677,7 @@ const AdminDashboard = () => {
                   </Col>
                 )}
               </Row>
-            </TabPane>
+            </TabPane> */}
           </Tabs>
         </Card>
       </motion.div>

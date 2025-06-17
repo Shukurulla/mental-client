@@ -38,7 +38,8 @@ const { Search } = Input;
 const { Option } = Select;
 
 // API base URL
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 const UserStats = () => {
   const { token } = useAuthStore();
@@ -62,12 +63,12 @@ const UserStats = () => {
     total: 0,
     active: 0,
     averageLevel: 0,
-    totalGames: 0
+    totalGames: 0,
   });
 
   // API headers with auth token
   const getAuthHeaders = () => ({
-    headers: { Authorization: `Bearer ${token}` }
+    headers: { Authorization: `Bearer ${token}` },
   });
 
   useEffect(() => {
@@ -78,7 +79,7 @@ const UserStats = () => {
   const loadUsers = async () => {
     try {
       setLoading(true);
-      
+
       const params = new URLSearchParams({
         page: pagination.current.toString(),
         limit: pagination.pageSize.toString(),
@@ -88,16 +89,16 @@ const UserStats = () => {
       });
 
       const response = await axios.get(
-        `${API_BASE_URL}/admin/users?${params}`, 
+        `${API_BASE_URL}/admin/users?${params}`,
         getAuthHeaders()
       );
 
       if (response.data.success) {
         setUsers(response.data.data.users);
-        setPagination(prev => ({
+        setPagination((prev) => ({
           ...prev,
           total: response.data.data.total,
-          current: response.data.data.currentPage
+          current: response.data.data.currentPage,
         }));
       }
     } catch (error) {
@@ -111,7 +112,7 @@ const UserStats = () => {
   const loadUserStatistics = async () => {
     try {
       const response = await axios.get(
-        `${API_BASE_URL}/admin/dashboard`, 
+        `${API_BASE_URL}/admin/dashboard`,
         getAuthHeaders()
       );
 
@@ -121,7 +122,7 @@ const UserStats = () => {
           total: data.users?.total || 0,
           active: data.users?.active || 0,
           averageLevel: data.users?.averageLevel || 0,
-          totalGames: data.games?.total || 0
+          totalGames: data.games?.total || 0,
         });
       }
     } catch (error) {
@@ -134,7 +135,7 @@ const UserStats = () => {
       switch (action) {
         case "view":
           const userResponse = await axios.get(
-            `${API_BASE_URL}/admin/users/${userId}`, 
+            `${API_BASE_URL}/admin/users/${userId}`,
             getAuthHeaders()
           );
           if (userResponse.data.success) {
@@ -144,7 +145,7 @@ const UserStats = () => {
           break;
         case "edit":
           const editResponse = await axios.get(
-            `${API_BASE_URL}/admin/users/${userId}`, 
+            `${API_BASE_URL}/admin/users/${userId}`,
             getAuthHeaders()
           );
           if (editResponse.data.success) {
@@ -155,7 +156,7 @@ const UserStats = () => {
           }
           break;
         case "toggle":
-          const user = users.find(u => u._id === userId);
+          const user = users.find((u) => u._id === userId);
           const updateResponse = await axios.put(
             `${API_BASE_URL}/admin/users/${userId}`,
             { isActive: !user.isActive },
@@ -168,7 +169,7 @@ const UserStats = () => {
           break;
         case "delete":
           await axios.delete(
-            `${API_BASE_URL}/admin/users/${userId}`, 
+            `${API_BASE_URL}/admin/users/${userId}`,
             getAuthHeaders()
           );
           message.success("Foydalanuvchi o'chirildi");
@@ -203,21 +204,21 @@ const UserStats = () => {
   const exportUsers = async () => {
     try {
       const response = await axios.get(
-        `${API_BASE_URL}/admin/export/users`, 
+        `${API_BASE_URL}/admin/export/users`,
         getAuthHeaders()
       );
-      
+
       // Faylni yuklab olish
       const blob = new Blob([JSON.stringify(response.data, null, 2)], {
-        type: 'application/json'
+        type: "application/json",
       });
       const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = url;
       link.download = `users_export_${Date.now()}.json`;
       link.click();
       window.URL.revokeObjectURL(url);
-      
+
       message.success("Foydalanuvchilar muvaffaqiyatli eksport qilindi");
     } catch (error) {
       console.error("Eksport qilishda xato:", error);
@@ -226,13 +227,13 @@ const UserStats = () => {
   };
 
   const handleSearch = (value) => {
-    setFilters(prev => ({ ...prev, search: value }));
-    setPagination(prev => ({ ...prev, current: 1 }));
+    setFilters((prev) => ({ ...prev, search: value }));
+    setPagination((prev) => ({ ...prev, current: 1 }));
   };
 
   const handleFilterChange = (type, value) => {
-    setFilters(prev => ({ ...prev, [type]: value }));
-    setPagination(prev => ({ ...prev, current: 1 }));
+    setFilters((prev) => ({ ...prev, [type]: value }));
+    setPagination((prev) => ({ ...prev, current: 1 }));
   };
 
   const columns = [
@@ -245,7 +246,9 @@ const UserStats = () => {
           <Avatar
             src={record.avatar}
             icon={<FaUser />}
-            className={record.role === "admin" ? "border-2 border-yellow-400" : ""}
+            className={
+              record.role === "admin" ? "border-2 border-yellow-400" : ""
+            }
           />
           <div>
             <div className="font-medium flex items-center space-x-2">
@@ -306,7 +309,7 @@ const UserStats = () => {
         const now = new Date();
         const diffTime = Math.abs(now - loginDate);
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        
+
         if (diffDays === 1) return "Bugun";
         if (diffDays === 2) return "Kecha";
         if (diffDays <= 7) return `${diffDays} kun oldin`;
@@ -333,31 +336,6 @@ const UserStats = () => {
       key: "actions",
       render: (_, record) => (
         <Space size="small">
-          <Tooltip title="Ko'rish">
-            <Button
-              icon={<FaEye />}
-              size="small"
-              type="link"
-              onClick={() => handleUserAction("view", record._id)}
-            />
-          </Tooltip>
-          <Tooltip title="Tahrirlash">
-            <Button
-              icon={<FaEdit />}
-              size="small"
-              type="link"
-              onClick={() => handleUserAction("edit", record._id)}
-            />
-          </Tooltip>
-          <Tooltip title={record.isActive ? "Bloklash" : "Aktivlashtirish"}>
-            <Button
-              icon={record.isActive ? <FaBan /> : <FaUnlock />}
-              size="small"
-              type="link"
-              onClick={() => handleUserAction("toggle", record._id)}
-              className={record.isActive ? "text-orange-500" : "text-green-500"}
-            />
-          </Tooltip>
           {record.role !== "admin" && (
             <Tooltip title="O'chirish">
               <Popconfirm
@@ -466,7 +444,9 @@ const UserStats = () => {
             <Search
               placeholder="Ism yoki email bo'yicha qidirish..."
               value={filters.search}
-              onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+              onChange={(e) =>
+                setFilters((prev) => ({ ...prev, search: e.target.value }))
+              }
               onSearch={handleSearch}
               allowClear
             />
@@ -474,7 +454,7 @@ const UserStats = () => {
           <Col xs={12} sm={4}>
             <Select
               value={filters.status}
-              onChange={(value) => handleFilterChange('status', value)}
+              onChange={(value) => handleFilterChange("status", value)}
               style={{ width: "100%" }}
             >
               <Option value="all">Barchasi</Option>
@@ -485,7 +465,7 @@ const UserStats = () => {
           <Col xs={12} sm={4}>
             <Select
               value={filters.role}
-              onChange={(value) => handleFilterChange('role', value)}
+              onChange={(value) => handleFilterChange("role", value)}
               style={{ width: "100%" }}
             >
               <Option value="all">Barcha rollar</Option>
@@ -511,7 +491,7 @@ const UserStats = () => {
             pagination={{
               ...pagination,
               onChange: (page, pageSize) => {
-                setPagination(prev => ({
+                setPagination((prev) => ({
                   ...prev,
                   current: page,
                   pageSize: pageSize,
@@ -546,7 +526,9 @@ const UserStats = () => {
                 <Text className="text-gray-600">{selectedUser.email}</Text>
                 <div className="mt-1">
                   <Tag color={selectedUser.role === "admin" ? "gold" : "blue"}>
-                    {selectedUser.role === "admin" ? "Administrator" : "Foydalanuvchi"}
+                    {selectedUser.role === "admin"
+                      ? "Administrator"
+                      : "Foydalanuvchi"}
                   </Tag>
                 </div>
               </div>
@@ -569,7 +551,10 @@ const UserStats = () => {
                 />
               </Col>
               <Col span={12}>
-                <Statistic title="Yutuqlar" value={selectedUser.achievements?.length || 0} />
+                <Statistic
+                  title="Yutuqlar"
+                  value={selectedUser.achievements?.length || 0}
+                />
               </Col>
             </Row>
 
@@ -578,15 +563,16 @@ const UserStats = () => {
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <Text>Ro'yxatdan o'tgan sana:</Text>
-                  <Text>{new Date(selectedUser.createdAt).toLocaleDateString()}</Text>
+                  <Text>
+                    {new Date(selectedUser.createdAt).toLocaleDateString()}
+                  </Text>
                 </div>
                 <div className="flex justify-between">
                   <Text>Oxirgi kirish:</Text>
                   <Text>
-                    {selectedUser.lastLogin 
+                    {selectedUser.lastLogin
                       ? new Date(selectedUser.lastLogin).toLocaleDateString()
-                      : "Hech qachon"
-                    }
+                      : "Hech qachon"}
                   </Text>
                 </div>
                 <div className="flex justify-between">

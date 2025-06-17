@@ -7,33 +7,32 @@ import {
   Space,
   Progress,
   message,
+  Modal,
+  Statistic,
 } from "antd";
-import { FaPlay, FaStop, FaRedo, FaArrowLeft } from "react-icons/fa";
+import { FaPlay, FaStop, FaRedo, FaArrowLeft, FaCog } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../../stores/authStore";
-import axios from "axios";
+import { gamesAPI } from "../../utils/api";
+import toast from "react-hot-toast";
 
 const { Title, Text } = Typography;
 
-// API base URL
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:5000/api";
-
 const FlashCardsGame = () => {
   const navigate = useNavigate();
-  const { token, user } = useAuthStore();
+  const { updateUserStats } = useAuthStore();
 
   // Game settings
   const [settings, setSettings] = useState({
     mode: "single", // single, audience
-    sequenceLength: 5,
+    sequenceLength: 1, // Start with 1 card
     displayTime: 1000, // milliseconds
     cardType: "soroban", // soroban, dots
   });
 
   // Game state
-  const [gameState, setGameState] = useState("setup"); // setup, playing, input, result
+  const [gameState, setGameState] = useState("idle"); // idle, playing, input, result
   const [sequence, setSequence] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [currentCard, setCurrentCard] = useState(null);
@@ -43,6 +42,12 @@ const FlashCardsGame = () => {
   const [level, setLevel] = useState(1);
   const [gameStartTime, setGameStartTime] = useState(null);
   const [showResult, setShowResult] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [gameStats, setGameStats] = useState({
+    totalGames: 0,
+    bestScore: 0,
+    averageScore: 0,
+  });
 
   const timerRef = useRef(null);
   const inputRef = useRef(null);
@@ -99,6 +104,7 @@ const FlashCardsGame = () => {
     setGameStartTime(Date.now());
     setScore(0);
     setCurrentIndex(0);
+    toast.success("Flash Cards o'yini boshlandi!");
   };
 
   // Display sequence
@@ -138,37 +144,46 @@ const FlashCardsGame = () => {
 
     // Save result to backend
     try {
-      await axios.post(
-        `${API_BASE_URL}/games/flashCards/submit`,
-        {
-          score: newScore,
-          level: level,
-          duration: duration,
-          correctAnswers: isCorrect ? 1 : 0,
-          totalQuestions: 1,
-          settings: settings,
-          gameData: {
-            sequence: sequence,
-            userAnswer: parseInt(userAnswer),
-            correctAnswer: correctAnswer,
-            isCorrect: isCorrect,
-          },
+      await gamesAPI.submitResult("flashCards", {
+        score: newScore,
+        level: level,
+        duration: duration,
+        correctAnswers: isCorrect ? 1 : 0,
+        totalQuestions: 1,
+        settings: settings,
+        gameData: {
+          sequence: sequence,
+          userAnswer: parseInt(userAnswer),
+          correctAnswer: correctAnswer,
+          isCorrect: isCorrect,
         },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      });
+
+      updateUserStats({
+        totalScore: newScore,
+        gamesPlayed: 1,
+      });
+
+      // Update local stats
+      setGameStats((prev) => ({
+        totalGames: prev.totalGames + 1,
+        bestScore: Math.max(prev.bestScore, newScore),
+        averageScore:
+          (prev.averageScore * prev.totalGames + newScore) /
+          (prev.totalGames + 1),
+      }));
     } catch (error) {
       console.error("Error saving game result:", error);
+      toast.error("Natijani saqlashda xato");
     }
 
     setGameState("result");
     setShowResult(true);
 
     if (isCorrect) {
-      message.success("To'g'ri javob!");
+      toast.success("To'g'ri javob!");
     } else {
-      message.error("Noto'g'ri javob!");
+      toast.error("Noto'g'ri javob!");
     }
   };
 
@@ -197,6 +212,18 @@ const FlashCardsGame = () => {
     setGameState("playing");
     setGameStartTime(Date.now());
     setCurrentIndex(0);
+  };
+
+  // Reset game
+  const resetGame = () => {
+    setGameState("idle");
+    setLevel(1);
+    setScore(0);
+    setSequence([]);
+    setCurrentIndex(0);
+    setCurrentCard(null);
+    setUserAnswer("");
+    setShowResult(false);
   };
 
   // Soroban Card Component
@@ -240,267 +267,349 @@ const FlashCardsGame = () => {
     </div>
   );
 
-  // Settings panel
-  const SettingsPanel = () => (
-    <Card className="w-full max-w-md">
-      <Title level={3} className="text-center mb-6">
-        Flash Cards
-      </Title>
-
-      <Space direction="vertical" className="w-full" size="large">
-        <div>
-          <Text strong>O'yin rejimi:</Text>
-          <div className="flex gap-2 mt-2">
-            {[
-              { value: "single", label: "Yakka" },
-              { value: "audience", label: "Auditoriya" },
-            ].map((mode) => (
-              <Button
-                key={mode.value}
-                type={settings.mode === mode.value ? "primary" : "default"}
-                onClick={() =>
-                  setSettings((prev) => ({ ...prev, mode: mode.value }))
-                }
-              >
-                {mode.label}
-              </Button>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <Text strong>Kartalar soni:</Text>
-          <div className="flex gap-2 mt-2">
-            {[3, 5, 7, 10].map((length) => (
-              <Button
-                key={length}
-                type={
-                  settings.sequenceLength === length ? "primary" : "default"
-                }
-                onClick={() =>
-                  setSettings((prev) => ({ ...prev, sequenceLength: length }))
-                }
-              >
-                {length}
-              </Button>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <Text strong>Ko'rsatish vaqti (ms):</Text>
-          <div className="flex gap-2 mt-2">
-            {[500, 1000, 1500, 2000].map((time) => (
-              <Button
-                key={time}
-                type={settings.displayTime === time ? "primary" : "default"}
-                onClick={() =>
-                  setSettings((prev) => ({ ...prev, displayTime: time }))
-                }
-              >
-                {time}
-              </Button>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <Text strong>Karta turi:</Text>
-          <div className="flex gap-2 mt-2">
-            {[
-              { value: "soroban", label: "Soroban" },
-              { value: "dots", label: "Nuqtalar" },
-            ].map((type) => (
-              <Button
-                key={type.value}
-                type={settings.cardType === type.value ? "primary" : "default"}
-                onClick={() =>
-                  setSettings((prev) => ({ ...prev, cardType: type.value }))
-                }
-              >
-                {type.label}
-              </Button>
-            ))}
-          </div>
-        </div>
-
-        <Button
-          type="primary"
-          size="large"
-          block
-          icon={<FaPlay />}
-          onClick={startGame}
-        >
-          O'yinni boshlash
-        </Button>
-      </Space>
-    </Card>
-  );
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 p-4">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <Button
-          icon={<FaArrowLeft />}
-          onClick={() => navigate("/games")}
-          size="large"
-        >
-          Orqaga
-        </Button>
-
-        {gameState !== "setup" && (
-          <div className="flex items-center gap-4">
-            <Text strong>Ball: {score}</Text>
-            <Text strong>Daraja: {level}</Text>
-          </div>
-        )}
+    <div className="max-w-4xl mx-auto p-6">
+      {/* Game Header */}
+      <div className="text-center mb-8">
+        <Title level={2} className="text-gray-800 mb-2">
+          🃏 Flash Cards
+        </Title>
+        <Text className="text-gray-600 text-lg">
+          Kartalar orqali tez hisoblash qobiliyatini rivojlantiring
+        </Text>
       </div>
 
-      <div className="flex justify-center items-center min-h-[80vh]">
-        {gameState === "setup" && <SettingsPanel />}
+      {/* Game Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <Card className="text-center">
+          <Statistic title="Ball" value={score} />
+        </Card>
+        <Card className="text-center">
+          <Statistic title="Daraja" value={level} />
+        </Card>
+        <Card className="text-center">
+          <Statistic title="Eng yaxshi" value={gameStats.bestScore} />
+        </Card>
+        <Card className="text-center">
+          <Statistic
+            title="O'rtacha"
+            value={Math.round(gameStats.averageScore)}
+          />
+        </Card>
+      </div>
 
-        {gameState === "playing" && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="text-center"
-          >
-            <div className="mb-4">
-              {currentCard ? (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  className="flex justify-center"
+      {/* Game Area */}
+      <Card className="bg-gradient-to-br from-green-50 to-blue-50 border-none shadow-game min-h-[500px]">
+        <div className="flex flex-col items-center justify-center h-full">
+          {/* Idle State */}
+          {gameState === "idle" && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-center space-y-6"
+            >
+              <div className="text-6xl mb-4">🃏</div>
+              <Title level={3}>Flash Cards o'yinini boshlaylik!</Title>
+              <Text className="text-gray-600 block mb-6 max-w-md">
+                Bu o'yin vizual xotira va tez hisoblash qobiliyatlaringizni
+                rivojlantiradi. Kartalarni ko'rib, ulardagi raqamlarni qo'shing.
+              </Text>
+
+              {/* Instructions */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 max-w-lg">
+                <Card className="bg-white/70">
+                  <div className="text-center">
+                    <div className="text-2xl mb-2">👀</div>
+                    <Text strong>Kuzating</Text>
+                    <Text className="text-xs text-gray-600 block">
+                      Kartadagi raqamni diqqat bilan ko'ring
+                    </Text>
+                  </div>
+                </Card>
+                <Card className="bg-white/70">
+                  <div className="text-center">
+                    <div className="text-2xl mb-2">🧮</div>
+                    <Text strong>Hisoblang</Text>
+                    <Text className="text-xs text-gray-600 block">
+                      Barcha kartalar yig'indisini toping
+                    </Text>
+                  </div>
+                </Card>
+                <Card className="bg-white/70">
+                  <div className="text-center">
+                    <div className="text-2xl mb-2">✍️</div>
+                    <Text strong>Javob bering</Text>
+                    <Text className="text-xs text-gray-600 block">
+                      Jami natijani kiriting
+                    </Text>
+                  </div>
+                </Card>
+              </div>
+
+              <Space size="large">
+                <Button
+                  type="primary"
+                  size="large"
+                  icon={<FaPlay />}
+                  onClick={startGame}
+                  className="bg-gradient-to-r from-primary-500 to-secondary-500 border-none px-8 py-2 h-auto"
                 >
-                  {settings.cardType === "soroban" ? (
-                    <SorobanCard segments={currentCard.segments} />
-                  ) : (
-                    <DotsCard number={currentCard.number} />
-                  )}
-                </motion.div>
-              ) : (
-                <div className="w-[200px] h-[200px] border-4 border-dashed border-gray-300 rounded-2xl flex items-center justify-center">
-                  <div className="text-4xl text-gray-300">●</div>
-                </div>
-              )}
-            </div>
+                  Boshlash
+                </Button>
+                <Button
+                  icon={<FaCog />}
+                  onClick={() => setShowSettings(true)}
+                  size="large"
+                  className="px-8 py-2 h-auto"
+                >
+                  Sozlamalar
+                </Button>
+              </Space>
+            </motion.div>
+          )}
 
-            <Progress
-              percent={((currentIndex + 1) / sequence.length) * 100}
-              className="mt-4"
-              strokeColor="#52c41a"
-            />
-          </motion.div>
-        )}
+          {/* Playing State */}
+          {gameState === "playing" && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="text-center"
+            >
+              <div className="mb-4">
+                {currentCard ? (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    className="flex justify-center"
+                  >
+                    {settings.cardType === "soroban" ? (
+                      <SorobanCard segments={currentCard.segments} />
+                    ) : (
+                      <DotsCard number={currentCard.number} />
+                    )}
+                  </motion.div>
+                ) : (
+                  <div className="w-[200px] h-[200px] border-4 border-dashed border-gray-300 rounded-2xl flex items-center justify-center">
+                    <div className="text-4xl text-gray-300">●</div>
+                  </div>
+                )}
+              </div>
 
-        {gameState === "input" && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center"
-          >
-            <Card className="min-w-[300px] p-6">
-              <Title level={3} className="mb-4">
-                {settings.mode === "single"
-                  ? "Javobingizni kiriting"
-                  : "Auditoriya uchun"}
-              </Title>
+              <Progress
+                percent={((currentIndex + 1) / sequence.length) * 100}
+                className="mt-4"
+                strokeColor="#52c41a"
+              />
 
-              {settings.mode === "single" ? (
-                <>
-                  <Input
-                    ref={inputRef}
-                    type="number"
-                    value={userAnswer}
-                    onChange={(e) => setUserAnswer(e.target.value)}
-                    onPressEnter={submitAnswer}
-                    size="large"
-                    className="text-center text-xl mb-4"
-                    placeholder="Jami..."
-                  />
+              <div className="flex justify-center mt-6">
+                <Button icon={<FaStop />} onClick={resetGame} className="px-6">
+                  To'xtatish
+                </Button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Input State */}
+          {gameState === "input" && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-center"
+            >
+              <Card className="min-w-[300px] p-6">
+                <Title level={3} className="mb-4">
+                  {settings.mode === "single"
+                    ? "Javobingizni kiriting"
+                    : "Auditoriya uchun"}
+                </Title>
+
+                {settings.mode === "single" ? (
+                  <>
+                    <Input
+                      ref={inputRef}
+                      type="number"
+                      value={userAnswer}
+                      onChange={(e) => setUserAnswer(e.target.value)}
+                      onPressEnter={submitAnswer}
+                      size="large"
+                      className="text-center text-xl mb-4"
+                      placeholder="Jami..."
+                    />
+                    <Button
+                      type="primary"
+                      size="large"
+                      block
+                      onClick={submitAnswer}
+                      disabled={!userAnswer}
+                    >
+                      Tasdiqlash
+                    </Button>
+                  </>
+                ) : (
                   <Button
                     type="primary"
                     size="large"
                     block
-                    onClick={submitAnswer}
-                    disabled={!userAnswer}
+                    onClick={() => {
+                      setShowResult(true);
+                      setGameState("result");
+                    }}
                   >
-                    Tasdiqlash
+                    Javobni ko'rsatish
                   </Button>
-                </>
-              ) : (
-                <Button
-                  type="primary"
-                  size="large"
-                  block
-                  onClick={() => {
-                    setShowResult(true);
-                    setGameState("result");
-                  }}
-                >
-                  Javobni ko'rsatish
-                </Button>
-              )}
-            </Card>
-          </motion.div>
-        )}
-
-        {gameState === "result" && showResult && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="text-center"
-          >
-            <Card className="min-w-[300px] p-6">
-              <div className="mb-4">
-                {settings.mode === "single" ? (
-                  <Title level={3}>
-                    {parseInt(userAnswer) === correctAnswer
-                      ? "✅ To'g'ri!"
-                      : "❌ Noto'g'ri"}
-                  </Title>
-                ) : (
-                  <Title level={3}>Natija</Title>
                 )}
+              </Card>
+            </motion.div>
+          )}
 
-                <div className="text-lg space-y-2">
-                  {settings.mode === "single" && (
-                    <div>
-                      Sizning javobingiz: <strong>{userAnswer}</strong>
-                    </div>
+          {/* Result State */}
+          {gameState === "result" && showResult && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="text-center"
+            >
+              <Card className="min-w-[300px] p-6">
+                <div className="mb-4">
+                  {settings.mode === "single" ? (
+                    <Title level={3}>
+                      {parseInt(userAnswer) === correctAnswer
+                        ? "✅ To'g'ri!"
+                        : "❌ Noto'g'ri"}
+                    </Title>
+                  ) : (
+                    <Title level={3}>Natija</Title>
                   )}
-                  <div>
-                    To'g'ri javob: <strong>{correctAnswer}</strong>
-                  </div>
-                  <div>
-                    Ball: <strong>{score}</strong>
+
+                  <div className="text-lg space-y-2">
+                    {settings.mode === "single" && (
+                      <div>
+                        Sizning javobingiz: <strong>{userAnswer}</strong>
+                      </div>
+                    )}
+                    <div>
+                      To'g'ri javob: <strong>{correctAnswer}</strong>
+                    </div>
+                    <div>
+                      Ball: <strong>{score}</strong>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <Space>
+                <Space>
+                  <Button
+                    type="primary"
+                    icon={<FaRedo />}
+                    onClick={nextRound}
+                    size="large"
+                  >
+                    Keyingi
+                  </Button>
+                  <Button icon={<FaStop />} onClick={resetGame} size="large">
+                    To'xtatish
+                  </Button>
+                </Space>
+              </Card>
+            </motion.div>
+          )}
+        </div>
+      </Card>
+
+      {/* Settings Modal */}
+      <Modal
+        title="Flash Cards sozlamalari"
+        open={showSettings}
+        onCancel={() => setShowSettings(false)}
+        footer={null}
+        className="settings-modal"
+      >
+        <div className="space-y-4">
+          <div>
+            <Text strong>O'yin rejimi:</Text>
+            <div className="flex gap-2 mt-2">
+              {[
+                { value: "single", label: "Yakka" },
+                { value: "audience", label: "Auditoriya" },
+              ].map((mode) => (
                 <Button
-                  type="primary"
-                  icon={<FaRedo />}
-                  onClick={nextRound}
-                  size="large"
+                  key={mode.value}
+                  type={settings.mode === mode.value ? "primary" : "default"}
+                  onClick={() =>
+                    setSettings((prev) => ({ ...prev, mode: mode.value }))
+                  }
                 >
-                  Keyingi
+                  {mode.label}
                 </Button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <Text strong>Kartalar soni:</Text>
+            <div className="flex gap-2 mt-2">
+              {[1, 3, 5, 7, 10].map((length) => (
                 <Button
-                  icon={<FaStop />}
-                  onClick={() => setGameState("setup")}
-                  size="large"
+                  key={length}
+                  type={
+                    settings.sequenceLength === length ? "primary" : "default"
+                  }
+                  onClick={() =>
+                    setSettings((prev) => ({ ...prev, sequenceLength: length }))
+                  }
                 >
-                  To'xtatish
+                  {length}
                 </Button>
-              </Space>
-            </Card>
-          </motion.div>
-        )}
-      </div>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <Text strong>Ko'rsatish vaqti (ms):</Text>
+            <div className="flex gap-2 mt-2">
+              {[500, 1000, 1500, 2000].map((time) => (
+                <Button
+                  key={time}
+                  type={settings.displayTime === time ? "primary" : "default"}
+                  onClick={() =>
+                    setSettings((prev) => ({ ...prev, displayTime: time }))
+                  }
+                >
+                  {time}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <Text strong>Karta turi:</Text>
+            <div className="flex gap-2 mt-2">
+              {[
+                { value: "soroban", label: "Soroban" },
+                { value: "dots", label: "Nuqtalar" },
+              ].map((type) => (
+                <Button
+                  key={type.value}
+                  type={
+                    settings.cardType === type.value ? "primary" : "default"
+                  }
+                  onClick={() =>
+                    setSettings((prev) => ({ ...prev, cardType: type.value }))
+                  }
+                >
+                  {type.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex justify-end mt-6">
+            <Button type="primary" onClick={() => setShowSettings(false)}>
+              Saqlash
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };
