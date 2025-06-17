@@ -34,7 +34,7 @@ const SchulteTableGame = () => {
   const [settings, setSettings] = useState({
     gridSize: 5,
     showNumbers: true,
-    timeLimit: 120, // seconds
+    timeLimit: 120,
   });
   const [showSettings, setShowSettings] = useState(false);
 
@@ -182,15 +182,11 @@ const SchulteTableGame = () => {
           className={`
             aspect-square border-2 rounded-lg cursor-pointer transition-all duration-200 
             flex items-center justify-center font-bold text-lg select-none
-            ${
-              isNext
-                ? "bg-blue-500 border-blue-600 text-white shadow-lg ring-4 ring-blue-200"
-                : ""
-            }
+            bg-white 
             ${isCompleted ? "bg-green-100 border-green-500 text-green-700" : ""}
             ${
               !isNext && !isCompleted
-                ? "bg-white border-gray-300 hover:bg-gray-50 text-gray-800"
+                ? "bg-white  hover:bg-gray-50 text-gray-800"
                 : ""
             }
           `}
@@ -419,14 +415,6 @@ const SchulteTableGame = () => {
                 }
               >
                 Ko'rsatish
-              </Button>
-              <Button
-                type={!settings.showNumbers ? "primary" : "default"}
-                onClick={() =>
-                  setSettings((prev) => ({ ...prev, showNumbers: false }))
-                }
-              >
-                Yashirish
               </Button>
             </div>
           </div>

@@ -331,11 +331,7 @@ const HideAndSeekGame = () => {
             : "bg-white border-gray-300 text-gray-800"
           : "bg-gray-200 border-gray-400 text-transparent hover:bg-blue-50 hover:border-blue-300"
       }
-      ${
-        isNextTarget
-          ? "animate-pulse ring-2 ring-yellow-400 border-yellow-500"
-          : ""
-      }
+      
     `;
   };
 
@@ -527,11 +523,11 @@ const HideAndSeekGame = () => {
               </div>
 
               <Progress
-                percent={
+                percent={(
                   ((settings.showDuration / 1000 - showTime) /
                     (settings.showDuration / 1000)) *
                   100
-                }
+                ).toFixed()}
                 strokeColor="#3b82f6"
                 showInfo={false}
               />

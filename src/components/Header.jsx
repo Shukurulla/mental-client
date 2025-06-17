@@ -101,17 +101,6 @@ const Header = () => {
         <div className="flex items-center space-x-4">
           {isAuthenticated ? (
             <Space size="middle">
-              {/* User Level Badge */}
-              <Badge
-                count={user?.level || 1}
-                color="gold"
-                title={`Daraja: ${user?.level || 1}`}
-              >
-                <div className="w-8 h-8 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center">
-                  <FaChartLine className="text-white text-sm" />
-                </div>
-              </Badge>
-
               {/* User Menu */}
               <Dropdown
                 menu={{ items: userMenuItems }}
