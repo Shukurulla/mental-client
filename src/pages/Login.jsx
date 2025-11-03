@@ -14,7 +14,7 @@ import {
   FaEye,
   FaEyeSlash,
   FaBrain,
-  FaEnvelope,
+  FaUser,
   FaLock,
   FaCrown,
 } from "react-icons/fa";
@@ -47,7 +47,7 @@ const Login = () => {
 
   const handleDemoLogin = () => {
     form.setFieldsValue({
-      email: "demo@mentalmath.uz",
+      username: "demo",
       password: "demo123",
     });
   };
@@ -58,7 +58,7 @@ const Login = () => {
     try {
       // Mock admin login for development
       const adminCredentials = {
-        email: "admin@mentalmath.uz",
+        username: "admin",
         password: "admin123",
       };
 
@@ -151,15 +151,15 @@ const Login = () => {
             className="space-y-4"
           >
             <Form.Item
-              name="email"
+              name="username"
               rules={[
-                { required: true, message: "Email manzilini kiriting" },
-                { type: "email", message: "To'g'ri email formatini kiriting" },
+                { required: true, message: "Username kiriting" },
+                { min: 3, message: "Username kamida 3 ta belgidan iborat bo'lishi kerak" },
               ]}
             >
               <Input
-                prefix={<FaEnvelope className="text-gray-400" />}
-                placeholder="Email manzilingiz"
+                prefix={<FaUser className="text-gray-400" />}
+                placeholder="Username (login)"
                 className="rounded-lg h-12"
               />
             </Form.Item>

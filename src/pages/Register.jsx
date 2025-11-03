@@ -7,14 +7,11 @@ import {
   Button,
   Typography,
   Divider,
-  Space,
-  Checkbox,
 } from "antd";
 import {
   FaEye,
   FaEyeSlash,
   FaBrain,
-  FaEnvelope,
   FaLock,
   FaUser,
 } from "react-icons/fa";
@@ -28,19 +25,8 @@ const Register = () => {
   const { register } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [form] = Form.useForm();
-  const [acceptTerms, setAcceptTerms] = useState(false);
 
   const handleSubmit = async (values) => {
-    if (!acceptTerms) {
-      form.setFields([
-        {
-          name: "terms",
-          errors: ["Foydalanish shartlarini qabul qilishingiz shart"],
-        },
-      ]);
-      return;
-    }
-
     setLoading(true);
     try {
       const result = await register(values);
@@ -88,7 +74,7 @@ const Register = () => {
               className="space-y-4"
             >
               <Form.Item
-                name="name"
+                name="firstName"
                 rules={[
                   { required: true, message: "Ismingizni kiriting" },
                   {
@@ -109,18 +95,47 @@ const Register = () => {
               </Form.Item>
 
               <Form.Item
-                name="email"
+                name="lastName"
                 rules={[
-                  { required: true, message: "Email manzilini kiriting" },
+                  { required: true, message: "Familiyangizni kiriting" },
                   {
-                    type: "email",
-                    message: "To'g'ri email formatini kiriting",
+                    min: 2,
+                    message: "Familiya kamida 2 ta belgidan iborat bo'lishi kerak",
+                  },
+                  {
+                    max: 50,
+                    message: "Familiya 50 ta belgidan ko'p bo'lmasligi kerak",
                   },
                 ]}
               >
                 <Input
-                  prefix={<FaEnvelope className="text-gray-400" />}
-                  placeholder="Email manzilingiz"
+                  prefix={<FaUser className="text-gray-400" />}
+                  placeholder="Familiyangiz"
+                  className="rounded-lg h-12"
+                />
+              </Form.Item>
+
+              <Form.Item
+                name="username"
+                rules={[
+                  { required: true, message: "Username kiriting" },
+                  {
+                    min: 3,
+                    message: "Username kamida 3 ta belgidan iborat bo'lishi kerak",
+                  },
+                  {
+                    max: 30,
+                    message: "Username 30 ta belgidan ko'p bo'lmasligi kerak",
+                  },
+                  {
+                    pattern: /^[a-zA-Z0-9_]+$/,
+                    message: "Username faqat harf, raqam va _ belgisidan iborat bo'lishi mumkin",
+                  },
+                ]}
+              >
+                <Input
+                  prefix={<FaUser className="text-gray-400" />}
+                  placeholder="Username (login)"
                   className="rounded-lg h-12"
                 />
               </Form.Item>
@@ -149,84 +164,12 @@ const Register = () => {
                 />
               </Form.Item>
 
-              <Form.Item
-                name="confirmPassword"
-                dependencies={["password"]}
-                rules={[
-                  { required: true, message: "Parolni tasdiqlang" },
-                  ({ getFieldValue }) => ({
-                    validator(_, value) {
-                      if (!value || getFieldValue("password") === value) {
-                        return Promise.resolve();
-                      }
-                      return Promise.reject(
-                        new Error("Parollar mos kelmaydi!")
-                      );
-                    },
-                  }),
-                ]}
-              >
-                <Input.Password
-                  prefix={<FaLock className="text-gray-400" />}
-                  placeholder="Parolni tasdiqlang"
-                  className="rounded-lg h-12"
-                  iconRender={(visible) =>
-                    visible ? (
-                      <FaEyeSlash className="text-gray-400" />
-                    ) : (
-                      <FaEye className="text-gray-400" />
-                    )
-                  }
-                />
-              </Form.Item>
-
-              {/* Terms and Conditions */}
-              <Form.Item
-                name="terms"
-                valuePropName="checked"
-                rules={[
-                  {
-                    validator: (_, value) =>
-                      value
-                        ? Promise.resolve()
-                        : Promise.reject(
-                            new Error("Shartlarni qabul qilishingiz kerak")
-                          ),
-                  },
-                ]}
-              >
-                <Checkbox
-                  checked={acceptTerms}
-                  onChange={(e) => setAcceptTerms(e.target.checked)}
-                  className="text-sm"
-                >
-                  <Text className="text-gray-600 text-sm">
-                    Men{" "}
-                    <Link
-                      to="/terms"
-                      className="text-primary-600 hover:text-primary-700 font-medium"
-                    >
-                      foydalanish shartlari
-                    </Link>{" "}
-                    va{" "}
-                    <Link
-                      to="/privacy"
-                      className="text-primary-600 hover:text-primary-700 font-medium"
-                    >
-                      maxfiylik siyosati
-                    </Link>{" "}
-                    bilan tanishib chiqdim va roziman
-                  </Text>
-                </Checkbox>
-              </Form.Item>
-
               <Form.Item className="mb-6">
                 <Button
                   type="primary"
                   htmlType="submit"
                   loading={loading}
                   block
-                  disabled={!acceptTerms}
                   className="h-12 text-lg font-medium bg-gradient-to-r from-primary-500 to-secondary-500 border-none rounded-lg"
                 >
                   {loading

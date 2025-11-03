@@ -144,25 +144,17 @@ const FlashCardsGame = () => {
 
     // Save result to backend
     try {
-      await gamesAPI.submitResult("flashCards", {
+      await gamesAPI.saveResult({
+        gameType: "flashCards",
         score: newScore,
         level: level,
         duration: duration,
         correctAnswers: isCorrect ? 1 : 0,
         totalQuestions: 1,
-        settings: settings,
-        gameData: {
-          sequence: sequence,
-          userAnswer: parseInt(userAnswer),
-          correctAnswer: correctAnswer,
-          isCorrect: isCorrect,
-        },
+        accuracy: isCorrect ? 100 : 0,
       });
 
-      updateUserStats({
-        totalScore: newScore,
-        gamesPlayed: 1,
-      });
+      await updateUserStats();
 
       // Update local stats
       setGameStats((prev) => ({
@@ -226,30 +218,58 @@ const FlashCardsGame = () => {
     setShowResult(false);
   };
 
-  // Soroban Card Component
-  const SorobanCard = ({ segments }) => (
-    <div className="w-[150px] relative h-[300px] py-2 border-4 rounded-2xl border-gray-600 bg-yellow-100">
-      {/* Central rod */}
-      <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-[4px] bg-gray-600 h-full"></div>
-      {/* Horizontal separator */}
-      <div className="absolute top-[90px] left-1/2 transform -translate-x-1/2 w-full h-[4px] bg-gray-600"></div>
+  // Soroban Card Component - To'g'ri soroban tasviri (yuqorida 1 ta, pastda 4 ta)
+  const SorobanCard = ({ number }) => {
+    // Soroban raqamni namoyish qilish
+    const upperBead = number >= 5 ? 1 : 0; // 5 qiymati
+    const lowerBeads = number % 5; // 0-4 qiymatlari
 
-      {/* Beads */}
-      {segments.map((visible, index) => (
-        <div
-          key={index}
-          className={`mb-2 ${
-            index === 1 ? "mb-4" : ""
-          } flex relative z-20 items-center justify-center ${
-            index < 2 ? "mt-2" : ""
-          }`}
-          style={{ opacity: visible ? 1 : 0.2 }}
-        >
-          <div className="w-[30px] h-[30px] bg-red-500 rounded-full border-2 border-red-700"></div>
+    return (
+      <div className="w-[150px] relative h-[350px] py-4 border-4 rounded-2xl border-gray-600 bg-yellow-100">
+        {/* Central rod */}
+        <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-[4px] bg-gray-700 h-full z-0"></div>
+
+        {/* Horizontal separator */}
+        <div className="absolute top-[100px] left-0 w-full h-[4px] bg-gray-700 z-0"></div>
+
+        {/* Upper section - 1 bead (5 value) */}
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-10">
+          <div
+            className={`w-[40px] h-[40px] rounded-full border-2 transition-all duration-300 ${
+              upperBead === 1
+                ? "bg-red-500 border-red-700 translate-y-[45px]" // aktiv holat
+                : "bg-red-400 border-red-600 translate-y-0" // passiv holat
+            }`}
+          />
         </div>
-      ))}
-    </div>
-  );
+
+        {/* Lower section - 4 beads (1 value each) */}
+        <div className="absolute top-[120px] left-1/2 transform -translate-x-1/2 z-10">
+          {[0, 1, 2, 3].map((beadIndex) => {
+            const isActive = beadIndex < lowerBeads;
+            // Toshlarning pozitsiyasi: aktiv bo'lsa tepaga, bo'lmasa o'z joyida
+            const beadPosition = isActive
+              ? 0  // Aktiv toshlar tepada joylashadi
+              : (beadIndex - lowerBeads + 1) * 50; // Passiv toshlar pastda, bir-biridan 50px masofada
+
+            return (
+              <div
+                key={beadIndex}
+                className={`w-[40px] h-[40px] rounded-full border-2 absolute transition-all duration-300 ${
+                  isActive
+                    ? "bg-blue-500 border-blue-700" // aktiv holat
+                    : "bg-blue-400 border-blue-600" // passiv holat
+                }`}
+                style={{
+                  top: `${beadPosition}px`
+                }}
+              />
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
 
   // Dots Card Component
   const DotsCard = ({ number }) => (
@@ -269,6 +289,15 @@ const FlashCardsGame = () => {
 
   return (
     <div className="max-w-4xl mx-auto p-6">
+      {/* Back button */}
+      <Button
+        icon={<FaArrowLeft />}
+        onClick={() => navigate(-1)}
+        className="mb-6"
+      >
+        Orqaga
+      </Button>
+
       {/* Game Header */}
       <div className="text-center mb-8">
         <Title level={2} className="text-gray-800 mb-2">
@@ -384,7 +413,7 @@ const FlashCardsGame = () => {
                     className="flex justify-center"
                   >
                     {settings.cardType === "soroban" ? (
-                      <SorobanCard segments={currentCard.segments} />
+                      <SorobanCard number={currentCard.number} />
                     ) : (
                       <DotsCard number={currentCard.number} />
                     )}

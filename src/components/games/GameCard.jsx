@@ -26,7 +26,7 @@ import {
   FaPlay,
   FaStar,
   FaSearch,
-  FaFlash,
+  FaBolt,
   FaCreditCard,
 } from "react-icons/fa";
 import { motion } from "framer-motion";
@@ -56,26 +56,65 @@ const gameIcons = {
   readingSpeed: FaBookOpen,
   hideAndSeek: FaEyeSlash,
   // NEW GAMES
-  flashAnzan: FaFlash,
+  flashAnzan: FaBolt,
   flashCards: FaCreditCard,
 };
 
-// Game colors
+// Game colors with full class names for Tailwind
 const gameColors = {
-  numberMemory: "blue",
-  tileMemory: "green",
-  alphaNumMemory: "purple",
-  schulteTable: "orange",
-  doubleSchulte: "red",
-  mathSystems: "cyan",
-  gcdLcm: "magenta",
-  fractions: "gold",
-  percentages: "lime",
-  readingSpeed: "geekblue",
-  hideAndSeek: "volcano",
+  numberMemory: {
+    tag: "blue",
+    bg: "bg-gradient-to-br from-blue-400 to-blue-600",
+  },
+  tileMemory: {
+    tag: "green",
+    bg: "bg-gradient-to-br from-green-400 to-green-600",
+  },
+  alphaNumMemory: {
+    tag: "purple",
+    bg: "bg-gradient-to-br from-purple-400 to-purple-600",
+  },
+  schulteTable: {
+    tag: "orange",
+    bg: "bg-gradient-to-br from-orange-400 to-orange-600",
+  },
+  doubleSchulte: {
+    tag: "red",
+    bg: "bg-gradient-to-br from-red-400 to-red-600",
+  },
+  mathSystems: {
+    tag: "cyan",
+    bg: "bg-gradient-to-br from-cyan-400 to-cyan-600",
+  },
+  gcdLcm: {
+    tag: "magenta",
+    bg: "bg-gradient-to-br from-pink-400 to-pink-600",
+  },
+  fractions: {
+    tag: "gold",
+    bg: "bg-gradient-to-br from-yellow-400 to-yellow-600",
+  },
+  percentages: {
+    tag: "lime",
+    bg: "bg-gradient-to-br from-lime-400 to-lime-600",
+  },
+  readingSpeed: {
+    tag: "geekblue",
+    bg: "bg-gradient-to-br from-indigo-400 to-indigo-600",
+  },
+  hideAndSeek: {
+    tag: "volcano",
+    bg: "bg-gradient-to-br from-red-500 to-orange-600",
+  },
   // NEW GAMES
-  flashAnzan: "pink",
-  flashCards: "yellow",
+  flashAnzan: {
+    tag: "pink",
+    bg: "bg-gradient-to-br from-pink-400 to-pink-600",
+  },
+  flashCards: {
+    tag: "yellow",
+    bg: "bg-gradient-to-br from-yellow-400 to-yellow-600",
+  },
 };
 
 const GameCard = ({ game, userStats, onPlay }) => {
@@ -85,6 +124,7 @@ const GameCard = ({ game, userStats, onPlay }) => {
   const gamesPlayed = stats?.gamesPlayed || 0;
   const averageScore = stats?.averageScore || 0;
   const lastPlayed = stats?.lastPlayed;
+  const colorConfig = gameColors[game.id] || gameColors.numberMemory;
 
   // Format last played date
   const formatLastPlayed = (date) => {
@@ -115,11 +155,7 @@ const GameCard = ({ game, userStats, onPlay }) => {
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center space-x-3">
               <div
-                className={`w-12 h-12 rounded-lg bg-gradient-to-br from-${
-                  gameColors[game.id]
-                }-400 to-${
-                  gameColors[game.id]
-                }-600 flex items-center justify-center shadow-lg`}
+                className={`w-12 h-12 rounded-lg ${colorConfig.bg} flex items-center justify-center shadow-lg`}
               >
                 <IconComponent className="text-white text-xl" />
               </div>
@@ -127,7 +163,7 @@ const GameCard = ({ game, userStats, onPlay }) => {
                 <Title level={4} className="mb-0 text-gray-800">
                   {game.name}
                 </Title>
-                <Tag color={gameColors[game.id]} className="mt-1">
+                <Tag color={colorConfig.tag} className="mt-1">
                   Daraja {game.maxLevel}
                 </Tag>
               </div>
@@ -162,10 +198,7 @@ const GameCard = ({ game, userStats, onPlay }) => {
                   (averageScore / (game.maxLevel * game.scoreMultiplier)) * 100,
                   100
                 )}
-                strokeColor={{
-                  "0%": gameColors[game.id],
-                  "100%": "#52c41a",
-                }}
+                strokeColor="#52c41a"
                 size="small"
                 showInfo={false}
               />

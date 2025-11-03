@@ -15,15 +15,38 @@ const TileMemoryGame = () => {
   const [userPattern, setUserPattern] = useState([]);
   const [showingPattern, setShowingPattern] = useState(false);
   const [gridSize] = useState(3); // 3x3 grid
+  const [mode, setMode] = useState("sequential"); // sequential, random
+
+  // Fisher-Yates shuffle algoritmi
+  const shuffleArray = (array) => {
+    const newArray = [...array];
+    for (let i = newArray.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+    }
+    return newArray;
+  };
 
   const generatePattern = (currentLevel) => {
     const patternSize = Math.min(2 + currentLevel, 9);
     const newPattern = [];
 
-    while (newPattern.length < patternSize) {
-      const tile = Math.floor(Math.random() * (gridSize * gridSize));
-      if (!newPattern.includes(tile)) {
-        newPattern.push(tile);
+    // Barcha mumkin bo'lgan plitkalarni yaratish
+    const allTiles = Array.from({ length: gridSize * gridSize }, (_, i) => i);
+
+    if (mode === "random") {
+      // Haqiqiy tasodifiy tartib
+      const shuffled = shuffleArray(allTiles);
+      for (let i = 0; i < patternSize; i++) {
+        newPattern.push(shuffled[i]);
+      }
+    } else {
+      // Oddiy tasodifiy tanlov (sequential mode)
+      while (newPattern.length < patternSize) {
+        const tile = Math.floor(Math.random() * (gridSize * gridSize));
+        if (!newPattern.includes(tile)) {
+          newPattern.push(tile);
+        }
       }
     }
 
@@ -135,6 +158,27 @@ const TileMemoryGame = () => {
           <Text className="text-gray-600">
             Yongan plitkalarning ketma-ketligini eslab qoling va takrorlang
           </Text>
+
+          {/* Mode selector */}
+          {gameState === "waiting" && (
+            <div className="mt-4">
+              <Text strong className="block mb-2">Rejim tanlang:</Text>
+              <Space>
+                <Button
+                  type={mode === "sequential" ? "primary" : "default"}
+                  onClick={() => setMode("sequential")}
+                >
+                  Ketma-ket
+                </Button>
+                <Button
+                  type={mode === "random" ? "primary" : "default"}
+                  onClick={() => setMode("random")}
+                >
+                  Haqiqiy Tasodifiy
+                </Button>
+              </Space>
+            </div>
+          )}
         </div>
 
         {/* Game Stats */}

@@ -87,7 +87,7 @@ const DoubleSchulteGame = () => {
       setEndTime(null);
       setElapsedTime(0);
 
-      toast.success("O'yin boshlandi! Qizil 1-raqamni toping");
+      toast.success("O'yin boshlandi! Qizil raqamlardan boshlang");
     } catch (error) {
       toast.error("O'yinni boshlashda xato yuz berdi");
     }
@@ -110,11 +110,11 @@ const DoubleSchulteGame = () => {
           // Switch to blue task
           setCurrentTask("blue");
           toast.success(
-            `To'g'ri! Endi ko'k ${currentBlueNumber}-raqamni toping`
+            `To'g'ri! Endi ko'k raqamni toping`
           );
         }
       } else {
-        toast.error(`Noto'g'ri! Qizil ${currentRedNumber}-raqamni toping`);
+        toast.error(`Noto'g'ri! Qizil raqamni qayta urinib ko'ring`);
       }
     } else if (color === "blue" && currentTask === "blue") {
       if (clickedNumber === currentBlueNumber) {
@@ -127,18 +127,16 @@ const DoubleSchulteGame = () => {
           // Switch to red task
           setCurrentTask("red");
           toast.success(
-            `To'g'ri! Endi qizil ${currentRedNumber}-raqamni toping`
+            `To'g'ri! Endi qizil raqamni toping`
           );
         }
       } else {
-        toast.error(`Noto'g'ri! Ko'k ${currentBlueNumber}-raqamni toping`);
+        toast.error(`Noto'g'ri! Ko'k raqamni qayta urinib ko'ring`);
       }
     } else {
       // Wrong color
-      const expectedColor = currentTask === "red" ? "qizil" : "ko'k";
-      const expectedNumber =
-        currentTask === "red" ? currentRedNumber : currentBlueNumber;
-      toast.error(`${expectedColor} ${expectedNumber}-raqamni toping!`);
+      const expectedColor = currentTask === "red" ? "Qizil" : "Ko'k";
+      toast.error(`${expectedColor} raqamni tanlang!`);
     }
   };
 
@@ -319,19 +317,21 @@ const DoubleSchulteGame = () => {
         </Card>
       </div>
 
-      {/* Current Task Indicator */}
+      {/* Current Task Indicator - faqat rang ko'rsatiladi */}
       {gameState === "playing" && (
         <Card className="mb-6 text-center">
           <div className="flex items-center justify-center space-x-4">
-            <Text className="text-lg">Hozir:</Text>
+            <Text className="text-lg">Hozirgi rang:</Text>
             <div
               className={`px-4 py-2 rounded-lg font-bold text-white ${
                 currentTask === "red" ? "bg-red-500" : "bg-blue-500"
               }`}
             >
-              {currentTask === "red" ? "Qizil" : "Ko'k"}{" "}
-              {currentTask === "red" ? currentRedNumber : currentBlueNumber}
+              {currentTask === "red" ? "Qizil" : "Ko'k"}
             </div>
+            <Text className="text-sm text-gray-500">
+              (1 dan {settings.gridSize * settings.gridSize} gacha tartibda)
+            </Text>
           </div>
         </Card>
       )}

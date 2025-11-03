@@ -36,23 +36,22 @@ const NumberMemoryGame = () => {
     difficulty: "medium",
     displayTime: 1000,
     maxLevel: 20,
+    digitCount: 4, // 4, 5, 6, 10 san tanlovi
   });
   const [showSettings, setShowSettings] = useState(false);
 
   // Generate number sequence
-  const generateSequence = useCallback((level) => {
-    const length = Math.min(3 + level, 15);
+  const generateSequence = useCallback((level, digitCount) => {
+    const baseLength = digitCount || 4; // Default 4 san
+    const length = Math.min(baseLength + Math.floor(level / 3), 15);
     return Array.from({ length }, () => Math.floor(Math.random() * 10));
   }, []);
 
   // Start new game
   const startGame = async () => {
     try {
-      const response = await gamesAPI.startGame("numberMemory", {
-        level,
-        settings,
-      });
-      const { sequence: newSequence } = response.data.gameContent;
+      // Local sequence generation
+      const newSequence = generateSequence(level, settings.digitCount);
 
       setSequence(newSequence);
       setGameState("showing");
@@ -448,6 +447,23 @@ const NumberMemoryGame = () => {
                     : diff === "medium"
                     ? "O'rta"
                     : "Qiyin"}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <Text strong>San miqdori:</Text>
+            <div className="mt-2 space-x-2">
+              {[4, 5, 6, 10].map((count) => (
+                <Button
+                  key={count}
+                  type={settings.digitCount === count ? "primary" : "default"}
+                  onClick={() =>
+                    setSettings((prev) => ({ ...prev, digitCount: count }))
+                  }
+                >
+                  {count} san
                 </Button>
               ))}
             </div>

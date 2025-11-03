@@ -9,13 +9,14 @@ import {
   Modal,
   Input,
   Radio,
+  Select,
+  Tag,
 } from "antd";
 import { FaPlay, FaStop, FaRedo, FaCog, FaCalculator } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
 import { gamesAPI } from "../../utils/api";
 import { useAuthStore } from "../../stores/authStore";
 import toast from "react-hot-toast";
-import "katex/dist/katex.min.css";
 
 const { Title, Text } = Typography;
 
@@ -30,15 +31,16 @@ const MathSystemsGame = () => {
   const [score, setScore] = useState(0);
   const [correctAnswers, setCorrectAnswers] = useState(0);
   const [startTime, setStartTime] = useState(null);
-  const [timeLeft, setTimeLeft] = useState(60);
+  const [timeLeft, setTimeLeft] = useState(90);
   const [gameStats, setGameStats] = useState({
     correct: 0,
     total: 0,
   });
   const [settings, setSettings] = useState({
-    difficulty: "medium",
-    timeLimit: 60,
-    problemTypes: ["power", "root", "log"],
+    mode: "formulasiz", // formulasiz, 5lik, 10liq, aralas
+    digitType: "1xonali", // 1xonali, 2xonali, 3xonali, aralas
+    rowCount: 5, // 5, 6, 7, 8, 9, 10
+    timeLimit: 90,
   });
   const [showSettings, setShowSettings] = useState(false);
 
@@ -59,174 +61,250 @@ const MathSystemsGame = () => {
     return () => clearInterval(interval);
   }, [gameState, timeLeft]);
 
+  // Generate numbers based on digit type
+  const generateNumber = (digitType) => {
+    switch (digitType) {
+      case "1xonali":
+        return Math.floor(Math.random() * 9) + 1; // 1-9
+      case "2xonali":
+        return Math.floor(Math.random() * 90) + 10; // 10-99
+      case "3xonali":
+        return Math.floor(Math.random() * 900) + 100; // 100-999
+      case "aralas":
+        const types = ["1xonali", "2xonali", "3xonali"];
+        return generateNumber(types[Math.floor(Math.random() * types.length)]);
+      default:
+        return Math.floor(Math.random() * 9) + 1;
+    }
+  };
+
+  // Apply 5lik formula
+  const apply5Formula = (num) => {
+    // +1 = +5-4, +2 = +5-3, +3 = +5-2, +4 = +5-1
+    // -1 = -5+4, -2 = -5+3, -3 = -5+2, -4 = -5+1
+    const formulas = [
+      { original: num, formula: `+${num}`, result: num },
+      { original: num, formula: `+5-${5 - num}`, result: num },
+      { original: -num, formula: `-${num}`, result: -num },
+      { original: -num, formula: `-5+${5 - num}`, result: -num },
+    ];
+
+    // 1-4 sonlari uchun 5lik formula
+    if (num >= 1 && num <= 4) {
+      return formulas[Math.floor(Math.random() * 2)]; // + yoki - variantdan birini tanlash
+    }
+    return { original: num, formula: `+${num}`, result: num };
+  };
+
+  // Apply 10liq formula (kengaytirilgan 2 va 3 xonali sonlar uchun)
+  const apply10Formula = (num) => {
+    // 1 xonali sonlar uchun: +9 = -1+10, +8 = -2+10, ...
+    if (num >= 6 && num <= 9) {
+      const formulas = [
+        { original: num, formula: `+${num}`, result: num },
+        { original: num, formula: `-${10 - num}+10`, result: num },
+        { original: -num, formula: `-${num}`, result: -num },
+        { original: -num, formula: `+${10 - num}-10`, result: -num },
+      ];
+      return formulas[Math.floor(Math.random() * 2)];
+    }
+
+    // 2 xonali sonlar uchun: +10 = +50-40, +20 = +50-30, ...
+    if (num >= 10 && num <= 99) {
+      const tens = Math.floor(num / 10) * 10;
+      const ones = num % 10;
+
+      if (tens >= 10 && tens <= 40) {
+        // 10, 20, 30, 40 uchun formula
+        const formulas = [
+          { original: num, formula: `+${num}`, result: num },
+          { original: num, formula: `+50-${50 - tens}`, result: num },
+        ];
+        return formulas[Math.floor(Math.random() * formulas.length)];
+      } else if (tens >= 60 && tens <= 90) {
+        // 60, 70, 80, 90 uchun formula
+        const formulas = [
+          { original: num, formula: `+${num}`, result: num },
+          { original: num, formula: `-${100 - tens}+100`, result: num },
+        ];
+        return formulas[Math.floor(Math.random() * formulas.length)];
+      }
+    }
+
+    // 3 xonali sonlar uchun: +100 = +500-400, +200 = +500-300, ...
+    if (num >= 100 && num <= 999) {
+      const hundreds = Math.floor(num / 100) * 100;
+
+      if (hundreds >= 100 && hundreds <= 400) {
+        // 100, 200, 300, 400 uchun formula
+        const formulas = [
+          { original: num, formula: `+${num}`, result: num },
+          { original: num, formula: `+500-${500 - hundreds}`, result: num },
+        ];
+        return formulas[Math.floor(Math.random() * formulas.length)];
+      } else if (hundreds >= 600 && hundreds <= 900) {
+        // 600, 700, 800, 900 uchun formula
+        const formulas = [
+          { original: num, formula: `+${num}`, result: num },
+          { original: num, formula: `-${1000 - hundreds}+1000`, result: num },
+        ];
+        return formulas[Math.floor(Math.random() * formulas.length)];
+      }
+    }
+
+    return { original: num, formula: `+${num}`, result: num };
+  };
+
+  // Apply formula based on mode
+  const applyFormula = (num, mode) => {
+    switch (mode) {
+      case "5lik":
+        return apply5Formula(num);
+      case "10liq":
+        return apply10Formula(num);
+      case "aralas":
+        // 5lik va 10liq formulalarni aralash
+        if (num >= 1 && num <= 4) {
+          return apply5Formula(num);
+        } else if (num >= 6 && num <= 9) {
+          return apply10Formula(num);
+        }
+        return { original: num, formula: `+${num}`, result: num };
+      case "formulasiz":
+      default:
+        // Oddiy qo'shish/ayirish
+        const isPositive = Math.random() > 0.5;
+        return {
+          original: num,
+          formula: isPositive ? `+${num}` : `-${num}`,
+          result: isPositive ? num : -num,
+        };
+    }
+  };
+
   // Generate math problems
   const generateProblems = useCallback(() => {
     const problemCount = 10 + level * 2;
     const generatedProblems = [];
 
     for (let i = 0; i < problemCount; i++) {
-      const type =
-        settings.problemTypes[
-          Math.floor(Math.random() * settings.problemTypes.length)
-        ];
-      let problem;
+      const numbers = [];
+      let sum = 0;
 
-      switch (type) {
-        case "power":
-          problem = generatePowerProblem();
-          break;
-        case "root":
-          problem = generateRootProblem();
-          break;
-        case "log":
-          problem = generateLogProblem();
-          break;
-        default:
-          problem = generatePowerProblem();
+      // Har bir qator uchun sonlar generatsiya qilish
+      for (let j = 0; j < settings.rowCount; j++) {
+        const num = generateNumber(settings.digitType);
+        const formulaData = applyFormula(num, settings.mode);
+        numbers.push(formulaData);
+        sum += formulaData.result;
       }
 
-      generatedProblems.push(problem);
+      generatedProblems.push({
+        numbers,
+        answer: sum,
+        display: numbers.map(n => n.formula).join(" "),
+      });
     }
 
     return generatedProblems;
-  }, [level, settings.problemTypes]);
+  }, [level, settings]);
 
-  const generatePowerProblem = () => {
-    const base = Math.floor(Math.random() * 8) + 2; // 2-9
-    const exponent = Math.floor(Math.random() * 4) + 2; // 2-5
-    return {
-      question: `${base}^${exponent}`,
-      answer: Math.pow(base, exponent),
-      type: "power",
-      latex: `${base}^{${exponent}}`,
-    };
+  const startGame = () => {
+    const generatedProblems = generateProblems();
+    setProblems(generatedProblems);
+    setCurrentProblem(generatedProblems[0]);
+    setProblemIndex(0);
+    setScore(0);
+    setCorrectAnswers(0);
+    setUserAnswer("");
+    setTimeLeft(settings.timeLimit);
+    setStartTime(Date.now());
+    setGameState("playing");
+    setGameStats({ correct: 0, total: 0 });
   };
 
-  const generateRootProblem = () => {
-    const result = Math.floor(Math.random() * 10) + 2; // 2-11
-    const number = result * result;
-    return {
-      question: `√${number}`,
-      answer: result,
-      type: "root",
-      latex: `\\sqrt{${number}}`,
-    };
-  };
+  const checkAnswer = () => {
+    if (!userAnswer) return;
 
-  const generateLogProblem = () => {
-    const bases = [2, 3, 5, 10];
-    const base = bases[Math.floor(Math.random() * bases.length)];
-    const result = Math.floor(Math.random() * 4) + 1; // 1-4
-    const number = Math.pow(base, result);
-    return {
-      question: `log₍${base}₎(${number})`,
-      answer: result,
-      type: "log",
-      latex: `\\log_{${base}}(${number})`,
-    };
-  };
-
-  // Start new game
-  const startGame = async () => {
-    try {
-      const newProblems = generateProblems();
-      setProblems(newProblems);
-      setCurrentProblem(newProblems[0]);
-      setProblemIndex(0);
-      setGameState("playing");
-      setScore(0);
-      setCorrectAnswers(0);
-      setUserAnswer("");
-      setStartTime(Date.now());
-      setTimeLeft(settings.timeLimit);
-      setGameStats({ correct: 0, total: 0 });
-
-      toast.success("O'yin boshlandi!");
-    } catch (error) {
-      toast.error("O'yinni boshlashda xato yuz berdi");
-    }
-  };
-
-  // Handle answer submission
-  const handleSubmit = () => {
-    if (!userAnswer.trim()) {
-      toast.error("Javobni kiriting");
-      return;
-    }
-
-    const userNum = parseFloat(userAnswer);
-    const isCorrect = Math.abs(userNum - currentProblem.answer) < 0.001;
-
-    const newStats = {
-      correct: gameStats.correct + (isCorrect ? 1 : 0),
-      total: gameStats.total + 1,
-    };
-    setGameStats(newStats);
+    const isCorrect = parseInt(userAnswer) === currentProblem.answer;
 
     if (isCorrect) {
-      setCorrectAnswers((prev) => prev + 1);
-      const points = 10 + level * 2;
-      setScore((prev) => prev + points);
-      toast.success(`To'g'ri! +${points} ball`);
+      setScore(score + 10 * level);
+      setCorrectAnswers(correctAnswers + 1);
+      setGameStats({
+        correct: gameStats.correct + 1,
+        total: gameStats.total + 1,
+      });
+      toast.success("To'g'ri! 🎉");
     } else {
-      toast.error(`Noto'g'ri! To'g'ri javob: ${currentProblem.answer}`);
+      setGameStats({
+        ...gameStats,
+        total: gameStats.total + 1,
+      });
+      toast.error(`Noto'g'ri. To'g'ri javob: ${currentProblem.answer}`);
     }
 
-    // Move to next problem
+    // Next problem
     if (problemIndex < problems.length - 1) {
-      setProblemIndex((prev) => prev + 1);
+      setProblemIndex(problemIndex + 1);
       setCurrentProblem(problems[problemIndex + 1]);
       setUserAnswer("");
     } else {
-      endGame();
+      // Level completed
+      if (correctAnswers >= problems.length * 0.7) {
+        setLevel(level + 1);
+        toast.success("Daraja oshdi! 🎯");
+        const newProblems = generateProblems();
+        setProblems(newProblems);
+        setProblemIndex(0);
+        setCurrentProblem(newProblems[0]);
+        setUserAnswer("");
+      } else {
+        endGame();
+      }
     }
   };
 
-  // Handle Enter key
-  const handleKeyPress = (e) => {
-    if (e.key === "Enter") {
-      handleSubmit();
-    }
-  };
-
-  // End game
   const endGame = async () => {
     setGameState("result");
-    const duration = startTime ? (Date.now() - startTime) / 1000 : 0;
+    const duration = Date.now() - startTime;
 
     try {
-      await gamesAPI.submitResult("mathSystems", {
+      await gamesAPI.saveResult({
+        gameType: "mathSystems",
         score,
         level,
         duration,
         correctAnswers,
         totalQuestions: gameStats.total,
-        settings,
+        accuracy: gameStats.total > 0 ? (gameStats.correct / gameStats.total) * 100 : 0,
       });
 
-      updateUserStats({
-        totalScore: score,
-        gamesPlayed: 1,
-      });
-
-      toast.success("Natija saqlandi!");
+      await updateUserStats();
+      toast.success("Natijangiz saqlandi!");
     } catch (error) {
-      toast.error("Natijani saqlashda xato");
+      console.error("Failed to save result:", error);
+      toast.error("Natijani saqlashda xatolik");
     }
   };
 
-  // Reset game
   const resetGame = () => {
     setGameState("idle");
     setLevel(1);
-    setScore(0);
-    setCorrectAnswers(0);
     setProblems([]);
     setCurrentProblem(null);
     setProblemIndex(0);
+    setScore(0);
+    setCorrectAnswers(0);
     setUserAnswer("");
-    setTimeLeft(60);
+    setTimeLeft(settings.timeLimit);
     setGameStats({ correct: 0, total: 0 });
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === "Enter" && gameState === "playing") {
+      checkAnswer();
+    }
   };
 
   return (
@@ -237,54 +315,66 @@ const MathSystemsGame = () => {
           🧮 Hisoblash Tizimlari
         </Title>
         <Text className="text-gray-600 text-lg">
-          Daraja, ildiz va logarifm masalalarini yeching
+          Turli formulalar yordamida tez hisoblashni o'rganing
         </Text>
       </div>
 
+      {/* Mode Display */}
+      <div className="text-center mb-4">
+        <Space size="middle">
+          <Tag color="blue" className="text-lg px-3 py-1">
+            Rejim: {settings.mode === "formulasiz" ? "Formulasiz" :
+                    settings.mode === "5lik" ? "5lik formula" :
+                    settings.mode === "10liq" ? "10liq formula" : "Aralas formula"}
+          </Tag>
+          <Tag color="green" className="text-lg px-3 py-1">
+            Xonalar: {settings.digitType === "aralas" ? "Aralash" : settings.digitType}
+          </Tag>
+          <Tag color="orange" className="text-lg px-3 py-1">
+            Qatorlar: {settings.rowCount}
+          </Tag>
+        </Space>
+      </div>
+
       {/* Game Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-4 gap-4 mb-6">
+        <Card className="text-center">
+          <Statistic title="Daraja" value={level} />
+        </Card>
         <Card className="text-center">
           <Statistic title="Ball" value={score} />
         </Card>
         <Card className="text-center">
-          <Statistic title="Vaqt" value={timeLeft} suffix="s" />
-        </Card>
-        <Card className="text-center">
           <Statistic
-            title="To'g'ri"
-            value={correctAnswers}
-            suffix={`/${gameStats.total}`}
+            title="Vaqt"
+            value={timeLeft}
+            suffix="s"
+            valueStyle={{ color: timeLeft < 10 ? "#ff4d4f" : "#1890ff" }}
           />
         </Card>
         <Card className="text-center">
           <Statistic
             title="Aniqlik"
-            value={
-              gameStats.total > 0
-                ? (gameStats.correct / gameStats.total) * 100
-                : 0
-            }
+            value={gameStats.total > 0 ? Math.round((gameStats.correct / gameStats.total) * 100) : 0}
             suffix="%"
-            precision={1}
           />
         </Card>
       </div>
 
-      {/* Game Area */}
-      <Card className="bg-gradient-to-br from-blue-50 to-purple-50 border-none shadow-game min-h-[400px]">
-        <div className="flex flex-col items-center justify-center h-full">
-          {/* Idle State */}
+      {/* Main Game Area */}
+      <Card className="mb-6" style={{ minHeight: 400 }}>
+        <AnimatePresence mode="wait">
           {gameState === "idle" && (
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-center space-y-6"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex flex-col items-center justify-center h-96"
             >
               <div className="text-6xl mb-4">🧮</div>
-              <Title level={3}>Matematik amallar o'yinini boshlaylik!</Title>
-              <Text className="text-gray-600 block mb-6 max-w-md">
-                Daraja, kvadrat ildiz va logarifm masalalarini tez va to'g'ri
-                yeching. Har bir to'g'ri javob uchun ball oling!
+              <Title level={3}>Hisoblashga tayyormisiz?</Title>
+              <Text className="text-gray-600 mb-6">
+                Turli formulalar yordamida tez hisoblashni mashq qiling
               </Text>
               <Space size="large">
                 <Button
@@ -292,15 +382,14 @@ const MathSystemsGame = () => {
                   size="large"
                   icon={<FaPlay />}
                   onClick={startGame}
-                  className="bg-gradient-to-r from-primary-500 to-secondary-500 border-none px-8 py-2 h-auto"
+                  className="px-8"
                 >
                   Boshlash
                 </Button>
                 <Button
+                  size="large"
                   icon={<FaCog />}
                   onClick={() => setShowSettings(true)}
-                  size="large"
-                  className="px-8 py-2 h-auto"
                 >
                   Sozlamalar
                 </Button>
@@ -308,147 +397,130 @@ const MathSystemsGame = () => {
             </motion.div>
           )}
 
-          {/* Playing State */}
           {gameState === "playing" && currentProblem && (
             <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
+              initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="text-center space-y-6 w-full max-w-md"
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="flex flex-col items-center justify-center h-96"
             >
-              <div className="flex justify-between items-center mb-4">
-                <Text className="text-lg">
-                  Masala {problemIndex + 1} / {problems.length}
+              <div className="mb-4">
+                <Progress
+                  percent={(problemIndex / problems.length) * 100}
+                  showInfo={false}
+                  strokeColor="#52c41a"
+                />
+                <Text className="text-gray-600 text-sm mt-2">
+                  {problemIndex + 1} / {problems.length} savol
                 </Text>
-                <div
-                  className={`text-2xl font-mono ${
-                    timeLeft <= 10
-                      ? "text-red-500 animate-pulse"
-                      : "text-gray-700"
-                  }`}
-                >
-                  {timeLeft}s
-                </div>
               </div>
 
-              <Progress
-                percent={(problemIndex / problems.length) * 100}
-                strokeColor="#3b82f6"
-                className="mb-6"
-              />
-
-              {/* Problem Display */}
-              <Card className="bg-white border border-gray-200">
-                <div className="text-center space-y-4">
-                  <Title level={2} className="text-gray-800 mb-4">
-                    {currentProblem.question}
-                  </Title>
-
-                  <Text className="text-gray-600">Javobni kiriting:</Text>
-
-                  <Input
-                    value={userAnswer}
-                    onChange={(e) => setUserAnswer(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    placeholder="Javobingizni kiriting"
-                    className="text-center text-xl py-3"
-                    type="number"
-                    autoFocus
-                  />
-
-                  <Button
-                    type="primary"
-                    onClick={handleSubmit}
-                    disabled={!userAnswer.trim()}
-                    className="bg-gradient-to-r from-primary-500 to-secondary-500 border-none px-8 py-2 h-auto"
-                  >
-                    Tasdiqlash
-                  </Button>
+              <div className="text-center mb-8">
+                <div className="bg-blue-50 p-8 rounded-lg mb-4">
+                  <Text className="text-3xl font-bold text-gray-800">
+                    {currentProblem.display} = ?
+                  </Text>
                 </div>
-              </Card>
 
-              <div className="flex justify-center">
-                <Button icon={<FaStop />} onClick={endGame} className="px-6">
-                  To'xtatish
+                {/* Formula hint for learning */}
+                {settings.mode !== "formulasiz" && (
+                  <div className="mb-4">
+                    {currentProblem.numbers.map((n, idx) => (
+                      <Tag key={idx} color="cyan" className="m-1">
+                        {n.formula}
+                      </Tag>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center space-x-4">
+                <Input
+                  size="large"
+                  placeholder="Javobingiz"
+                  value={userAnswer}
+                  onChange={(e) => setUserAnswer(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  className="w-48 text-center text-xl"
+                  autoFocus
+                  type="number"
+                />
+                <Button
+                  type="primary"
+                  size="large"
+                  onClick={checkAnswer}
+                  disabled={!userAnswer}
+                >
+                  Tekshirish
                 </Button>
               </div>
             </motion.div>
           )}
 
-          {/* Result State */}
           {gameState === "result" && (
             <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="text-center space-y-6"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="text-center py-12"
             >
               <div className="text-6xl mb-4">
-                {correctAnswers / gameStats.total >= 0.8
-                  ? "🎉"
-                  : correctAnswers / gameStats.total >= 0.6
-                  ? "👍"
-                  : "💪"}
+                {score >= 100 ? "🏆" : score >= 50 ? "🎉" : "💪"}
               </div>
-              <Title level={3}>O'yin tugadi!</Title>
-
-              <div className="grid grid-cols-2 gap-4 my-6 max-w-md mx-auto">
-                <Card>
-                  <Statistic title="Yakuniy ball" value={score} />
-                </Card>
-                <Card>
-                  <Statistic
-                    title="To'g'ri javoblar"
-                    value={correctAnswers}
-                    suffix={`/${gameStats.total}`}
-                  />
-                </Card>
-                <Card>
-                  <Statistic
-                    title="Aniqlik"
-                    value={
-                      gameStats.total > 0
-                        ? (gameStats.correct / gameStats.total) * 100
-                        : 0
-                    }
-                    suffix="%"
-                    precision={1}
-                  />
-                </Card>
-                <Card>
-                  <Statistic
-                    title="Vaqt"
-                    value={
-                      startTime
-                        ? Math.floor((Date.now() - startTime) / 1000)
-                        : 0
-                    }
-                    suffix="s"
-                  />
-                </Card>
+              <Title level={2} className="mb-4">
+                O'yin tugadi!
+              </Title>
+              <div className="mb-6">
+                <Statistic
+                  title="Yakuniy ball"
+                  value={score}
+                  className="mb-4"
+                />
+                <Text className="text-lg block mb-2">
+                  To'g'ri javoblar: {gameStats.correct} / {gameStats.total}
+                </Text>
+                <Text className="text-lg block">
+                  Aniqlik: {gameStats.total > 0 ? Math.round((gameStats.correct / gameStats.total) * 100) : 0}%
+                </Text>
               </div>
-
               <Space size="large">
                 <Button
                   type="primary"
+                  size="large"
                   icon={<FaRedo />}
                   onClick={resetGame}
-                  size="large"
-                  className="bg-gradient-to-r from-primary-500 to-secondary-500 border-none px-8 py-2 h-auto"
                 >
                   Qayta o'ynash
                 </Button>
                 <Button
-                  icon={<FaPlay />}
-                  onClick={startGame}
                   size="large"
-                  className="px-8 py-2 h-auto"
+                  icon={<FaCog />}
+                  onClick={() => {
+                    setShowSettings(true);
+                    resetGame();
+                  }}
                 >
-                  Yangi o'yin
+                  Sozlamalarni o'zgartirish
                 </Button>
               </Space>
             </motion.div>
           )}
-        </div>
+        </AnimatePresence>
       </Card>
+
+      {/* Game Controls */}
+      {gameState === "playing" && (
+        <div className="flex justify-center space-x-4">
+          <Button
+            danger
+            size="large"
+            icon={<FaStop />}
+            onClick={endGame}
+          >
+            To'xtatish
+          </Button>
+        </div>
+      )}
 
       {/* Settings Modal */}
       <Modal
@@ -456,92 +528,88 @@ const MathSystemsGame = () => {
         open={showSettings}
         onCancel={() => setShowSettings(false)}
         footer={null}
-        className="settings-modal"
+        width={500}
       >
         <div className="space-y-4">
           <div>
-            <Text strong>Qiyinlik darajasi:</Text>
-            <div className="mt-2 space-x-2">
-              {["easy", "medium", "hard"].map((diff) => (
-                <Button
-                  key={diff}
-                  type={settings.difficulty === diff ? "primary" : "default"}
-                  onClick={() =>
-                    setSettings((prev) => ({ ...prev, difficulty: diff }))
-                  }
-                >
-                  {diff === "easy"
-                    ? "Oson"
-                    : diff === "medium"
-                    ? "O'rta"
-                    : "Qiyin"}
-                </Button>
-              ))}
-            </div>
+            <Text strong className="block mb-2">
+              Hisoblash rejimi:
+            </Text>
+            <Radio.Group
+              value={settings.mode}
+              onChange={(e) => setSettings({ ...settings, mode: e.target.value })}
+              className="space-y-2"
+            >
+              <Radio value="formulasiz" className="block">
+                Formulasiz (oddiy qo'shish/ayirish)
+              </Radio>
+              <Radio value="5lik" className="block">
+                5lik formula (+1=+5-4, +2=+5-3, ...)
+              </Radio>
+              <Radio value="10liq" className="block">
+                10liq formula (+9=-1+10, +8=-2+10, ...)
+              </Radio>
+              <Radio value="aralas" className="block">
+                Aralas formula (5lik va 10liq)
+              </Radio>
+            </Radio.Group>
           </div>
 
           <div>
-            <Text strong>Vaqt chegarasi (soniya):</Text>
-            <div className="mt-2">
-              <input
-                type="range"
-                min="30"
-                max="120"
-                step="15"
-                value={settings.timeLimit}
-                onChange={(e) =>
-                  setSettings((prev) => ({
-                    ...prev,
-                    timeLimit: Number(e.target.value),
-                  }))
-                }
-                className="w-full"
-              />
-              <Text className="text-sm text-gray-500">
-                {settings.timeLimit} soniya
-              </Text>
-            </div>
+            <Text strong className="block mb-2">
+              Sonlar xonasi:
+            </Text>
+            <Radio.Group
+              value={settings.digitType}
+              onChange={(e) => setSettings({ ...settings, digitType: e.target.value })}
+              className="space-y-2"
+            >
+              <Radio value="1xonali" className="block">1 xonali (1-9)</Radio>
+              <Radio value="2xonali" className="block">2 xonali (10-99)</Radio>
+              <Radio value="3xonali" className="block">3 xonali (100-999)</Radio>
+              <Radio value="aralas" className="block">Aralash</Radio>
+            </Radio.Group>
           </div>
 
           <div>
-            <Text strong>Masala turlari:</Text>
-            <div className="mt-2 space-y-2">
-              {[
-                { key: "power", label: "Daraja (2³, 3⁴, ...)" },
-                { key: "root", label: "Kvadrat ildiz (√16, √25, ...)" },
-                { key: "log", label: "Logarifm (log₂(8), log₁₀(100), ...)" },
-              ].map((type) => (
-                <label key={type.key} className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    checked={settings.problemTypes.includes(type.key)}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setSettings((prev) => ({
-                          ...prev,
-                          problemTypes: [...prev.problemTypes, type.key],
-                        }));
-                      } else {
-                        setSettings((prev) => ({
-                          ...prev,
-                          problemTypes: prev.problemTypes.filter(
-                            (t) => t !== type.key
-                          ),
-                        }));
-                      }
-                    }}
-                  />
-                  <Text>{type.label}</Text>
-                </label>
-              ))}
-            </div>
+            <Text strong className="block mb-2">
+              Qatorlar soni:
+            </Text>
+            <Select
+              value={settings.rowCount}
+              onChange={(value) => setSettings({ ...settings, rowCount: value })}
+              className="w-full"
+            >
+              <Select.Option value={5}>5 qator</Select.Option>
+              <Select.Option value={6}>6 qator</Select.Option>
+              <Select.Option value={7}>7 qator</Select.Option>
+              <Select.Option value={8}>8 qator</Select.Option>
+              <Select.Option value={9}>9 qator</Select.Option>
+              <Select.Option value={10}>10 qator</Select.Option>
+            </Select>
           </div>
 
-          <div className="flex justify-end mt-6">
-            <Button type="primary" onClick={() => setShowSettings(false)}>
-              Saqlash
-            </Button>
+          <div>
+            <Text strong className="block mb-2">
+              Vaqt chegarasi:
+            </Text>
+            <Radio.Group
+              value={settings.timeLimit}
+              onChange={(e) => setSettings({ ...settings, timeLimit: e.target.value })}
+            >
+              <Radio value={60}>60 soniya</Radio>
+              <Radio value={90}>90 soniya</Radio>
+              <Radio value={120}>120 soniya</Radio>
+            </Radio.Group>
           </div>
+
+          <Button
+            type="primary"
+            block
+            onClick={() => setShowSettings(false)}
+          >
+            Saqlash
+          </Button>
         </div>
       </Modal>
     </div>

@@ -10,6 +10,11 @@ import {
   FaStar,
   FaThLarge,
   FaRocket,
+  FaBullseye,
+  FaCalculator,
+  FaChartPie,
+  FaBook,
+  FaSearch,
 } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { useAuthStore } from "../stores/authStore";
@@ -34,7 +39,7 @@ const FeatureCard = ({ icon: Icon, title, description, delay = 0 }) => (
   </motion.div>
 );
 
-const GameTypeCard = ({ icon, title, description, color = "blue" }) => (
+const GameTypeCard = ({ icon: Icon, title, description, colorClass }) => (
   <motion.div
     whileHover={{ y: -4, scale: 1.02 }}
     transition={{ duration: 0.2 }}
@@ -42,9 +47,9 @@ const GameTypeCard = ({ icon, title, description, color = "blue" }) => (
     <Card className="h-full bg-gradient-to-br from-white to-gray-50 border border-gray-200 hover:border-primary-300 hover:shadow-lg transition-all duration-300">
       <div className="text-center space-y-3">
         <div
-          className={`w-12 h-12 rounded-lg bg-gradient-to-br from-${color}-400 to-${color}-600 flex items-center justify-center mx-auto`}
+          className={`w-12 h-12 rounded-lg ${colorClass} flex items-center justify-center mx-auto`}
         >
-          <span className="text-white text-xl">{icon}</span>
+          <Icon className="text-white text-xl" />
         </div>
         <Title level={5} className="mb-2">
           {title}
@@ -244,50 +249,50 @@ const Home = () => {
           <Row gutter={[24, 24]}>
             <Col xs={12} sm={8} md={6}>
               <GameTypeCard
-                icon="🧠"
+                icon={FaBrain}
                 title="Xotira o'yinlari"
                 description="Raqam va naqshlarni eslab qolish"
-                color="blue"
+                colorClass="bg-gradient-to-br from-blue-400 to-blue-600"
               />
             </Col>
             <Col xs={12} sm={8} md={6}>
               <GameTypeCard
-                icon="🎯"
+                icon={FaBullseye}
                 title="Diqqat mashqlari"
                 description="Schulte jadvali va fokus o'yinlari"
-                color="green"
+                colorClass="bg-gradient-to-br from-green-400 to-green-600"
               />
             </Col>
             <Col xs={12} sm={8} md={6}>
               <GameTypeCard
-                icon="🧮"
+                icon={FaCalculator}
                 title="Matematik amallar"
                 description="Hisoblash va formulalar"
-                color="purple"
+                colorClass="bg-gradient-to-br from-purple-400 to-purple-600"
               />
             </Col>
             <Col xs={12} sm={8} md={6}>
               <GameTypeCard
-                icon="📊"
+                icon={FaChartPie}
                 title="Mantiq masalalari"
                 description="Foizlar va kasrlar bilan ishlash"
-                color="orange"
+                colorClass="bg-gradient-to-br from-orange-400 to-orange-600"
               />
             </Col>
             <Col xs={12} sm={8} md={6}>
               <GameTypeCard
-                icon="📖"
+                icon={FaBook}
                 title="O'qish tezligi"
                 description="Tushunish bilan tez o'qish"
-                color="cyan"
+                colorClass="bg-gradient-to-br from-cyan-400 to-cyan-600"
               />
             </Col>
             <Col xs={12} sm={8} md={6}>
               <GameTypeCard
-                icon="🔍"
+                icon={FaSearch}
                 title="Vizual topish"
-                description="Berkinchoq va naqsh topish"
-                color="red"
+                description="Berkinmachoq va naqsh topish"
+                colorClass="bg-gradient-to-br from-red-400 to-red-600"
               />
             </Col>
           </Row>

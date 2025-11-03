@@ -116,7 +116,7 @@ export const GAME_TYPES = {
   },
   hideAndSeek: {
     id: "hideAndSeek",
-    name: "Berkinchoq",
+    name: "Berkinmachoq",
     description: "Yashiringan raqamlarning joyini toping",
     category: "logic",
     maxLevel: 15,

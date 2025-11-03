@@ -238,6 +238,15 @@ const FlashAnzanGame = () => {
 
   return (
     <div className="max-w-4xl mx-auto p-6">
+      {/* Back button */}
+      <Button
+        icon={<FaArrowLeft />}
+        onClick={() => navigate(-1)}
+        className="mb-6"
+      >
+        Orqaga
+      </Button>
+
       {/* Game Header */}
       <div className="text-center mb-8">
         <Title level={2} className="text-gray-800 mb-2">

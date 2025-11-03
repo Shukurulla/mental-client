@@ -369,7 +369,7 @@ const HideAndSeekGame = () => {
       {/* Game Header */}
       <div className="text-center mb-8">
         <Title level={2} className="text-gray-800 mb-2">
-          🔍 Berkinchoq
+          🔍 Berkinmachoq
         </Title>
         <Text className="text-gray-600 text-lg">
           Yashiringan raqamlarning joyini eslab qoling va ularni tartib bilan
@@ -434,7 +434,7 @@ const HideAndSeekGame = () => {
               className="text-center space-y-6"
             >
               <div className="text-6xl mb-4">🔍</div>
-              <Title level={3}>Berkinchoq o'yinini boshlaylik!</Title>
+              <Title level={3}>Berkinmachoq o'yinini boshlaylik!</Title>
               <Text className="text-gray-600 block mb-6 max-w-md">
                 Raqamlar tasodifiy joylarda ko'rsatiladi, keyin ba'zilari
                 yashiriladi. Yashiringan raqamlarni kichikdan boshlab tartib
@@ -658,7 +658,7 @@ const HideAndSeekGame = () => {
 
       {/* Settings Modal */}
       <Modal
-        title="Berkinchoq o'yini sozlamalari"
+        title="Berkinmachoq o'yini sozlamalari"
         open={showSettings}
         onCancel={() => setShowSettings(false)}
         footer={null}
