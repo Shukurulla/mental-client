@@ -14,8 +14,41 @@ import { motion, AnimatePresence } from "framer-motion";
 import { gamesAPI } from "../../utils/api";
 import { useAuthStore } from "../../stores/authStore";
 import toast from "react-hot-toast";
+import katex from "katex";
+import "katex/dist/katex.min.css";
 
 const { Title, Text } = Typography;
+
+// KaTeX bilan kasr ko'rsatish komponenti
+const FractionDisplay = ({ numerator, denominator, inline = false }) => {
+  const latex = `\\frac{${numerator}}{${denominator}}`;
+  const html = katex.renderToString(latex, {
+    throwOnError: false,
+    displayMode: !inline,
+  });
+
+  return (
+    <span
+      className="katex-fraction"
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+};
+
+// KaTeX bilan matematik ifoda ko'rsatish
+const MathDisplay = ({ latex, inline = false }) => {
+  const html = katex.renderToString(latex, {
+    throwOnError: false,
+    displayMode: !inline,
+  });
+
+  return (
+    <span
+      className="katex-math"
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+};
 
 const FractionsGame = () => {
   const { updateUserStats } = useAuthStore();
@@ -40,6 +73,32 @@ const FractionsGame = () => {
   });
   const [showSettings, setShowSettings] = useState(false);
 
+  // End game - O'yinni tugatish (useEffect dan oldin bo'lishi kerak)
+  const endGame = useCallback(async () => {
+    setGameState("result");
+    const duration = startTime ? (Date.now() - startTime) / 1000 : 0;
+
+    try {
+      await gamesAPI.submitResult("fractions", {
+        score,
+        level,
+        duration,
+        correctAnswers,
+        totalQuestions: gameStats.total,
+        settings,
+      });
+
+      updateUserStats({
+        totalScore: score,
+        gamesPlayed: 1,
+      });
+
+      toast.success("Natija saqlandi!");
+    } catch (error) {
+      toast.error("Natijani saqlashda xato");
+    }
+  }, [score, level, correctAnswers, gameStats.total, settings, startTime, updateUserStats]);
+
   // Timer effect
   useEffect(() => {
     let interval;
@@ -47,15 +106,23 @@ const FractionsGame = () => {
       interval = setInterval(() => {
         setTimeLeft((prev) => {
           if (prev <= 1) {
-            endGame();
             return 0;
           }
           return prev - 1;
         });
       }, 1000);
     }
-    return () => clearInterval(interval);
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   }, [gameState, timeLeft]);
+
+  // Check if time is up
+  useEffect(() => {
+    if (gameState === "playing" && timeLeft === 0) {
+      endGame();
+    }
+  }, [timeLeft, gameState, endGame]);
 
   // Helper functions for fraction operations
   const gcd = (a, b) => (b === 0 ? a : gcd(b, a % b));
@@ -136,12 +203,13 @@ const FractionsGame = () => {
 
     const result = compareFractions(f1, f2);
     const correctAnswer =
-      result === "greater" ? "A > B" : result === "less" ? "A < B" : "A = B";
+      result === "greater" ? ">" : result === "less" ? "<" : "=";
 
-    const options = ["A > B", "A < B", "A = B"];
+    const options = [">", "<", "="];
 
     return {
-      question: `${f1.num}/${f1.den} va ${f2.num}/${f2.den} ni solishtiring`,
+      question: `compare`, // special flag
+      questionLatex: `\\frac{${f1.num}}{${f1.den}} \\; ? \\; \\frac{${f2.num}}{${f2.den}}`,
       options: options,
       correctAnswer: correctAnswer,
       type: "compare",
@@ -160,22 +228,99 @@ const FractionsGame = () => {
     };
 
     const result = addFractions(f1, f2);
-    const correctAnswer = `${result.num}/${result.den}`;
+    // Convert to decimal
+    const correctAnswer = (result.num / result.den).toFixed(2);
 
-    // Generate wrong options
-    const wrong1 = simplifyFraction(result.num + 1, result.den);
-    const wrong2 = simplifyFraction(result.num, result.den + 1);
-    const wrong3 = simplifyFraction(f1.num + f2.num, f1.den + f2.den); // Common mistake
+    // Generate wrong options (decimals)
+    const wrong1 = ((result.num + 1) / result.den).toFixed(2);
+    const wrong2 = (result.num / (result.den + 1)).toFixed(2);
+    const wrong3 = ((f1.num + f2.num) / (f1.den + f2.den)).toFixed(2); // Common mistake
 
     const options = [
       correctAnswer,
-      `${wrong1.num}/${wrong1.den}`,
-      `${wrong2.num}/${wrong2.den}`,
-      `${wrong3.num}/${wrong3.den}`,
-    ].sort(() => Math.random() - 0.5);
+      wrong1,
+      wrong2,
+      wrong3,
+    ].filter((v, i, a) => a.indexOf(v) === i) // Remove duplicates
+     .sort(() => Math.random() - 0.5);
 
     return {
-      question: `${f1.num}/${f1.den} × ${f2.num}/${f2.den} = ?`,
+      question: `add`,
+      questionLatex: `\\frac{${f1.num}}{${f1.den}} + \\frac{${f2.num}}{${f2.den}} = \\; ?`,
+      options: options,
+      correctAnswer: correctAnswer,
+      type: "add",
+      fractions: [f1, f2],
+    };
+  };
+
+  const generateSubtractProblem = () => {
+    const f1 = {
+      num: Math.floor(Math.random() * 7) + 2,
+      den: Math.floor(Math.random() * 6) + 2,
+    };
+    const f2 = {
+      num: Math.floor(Math.random() * 5) + 1,
+      den: Math.floor(Math.random() * 6) + 2,
+    };
+
+    const result = subtractFractions(f1, f2);
+    // Convert to decimal
+    const correctAnswer = (result.num / result.den).toFixed(2);
+
+    // Generate wrong options (decimals)
+    const wrong1 = ((result.num + 1) / result.den).toFixed(2);
+    const wrong2 = (result.num / (result.den + 1)).toFixed(2);
+    const wrong3 = ((f1.num - f2.num) / (f1.den - f2.den)).toFixed(2); // Common mistake
+
+    const options = [
+      correctAnswer,
+      wrong1,
+      wrong2,
+      wrong3,
+    ].filter((v, i, a) => a.indexOf(v) === i && !isNaN(parseFloat(v))) // Remove duplicates and NaN
+     .sort(() => Math.random() - 0.5);
+
+    return {
+      question: `subtract`,
+      questionLatex: `\\frac{${f1.num}}{${f1.den}} - \\frac{${f2.num}}{${f2.den}} = \\; ?`,
+      options: options,
+      correctAnswer: correctAnswer,
+      type: "subtract",
+      fractions: [f1, f2],
+    };
+  };
+
+  const generateMultiplyProblem = () => {
+    const f1 = {
+      num: Math.floor(Math.random() * 5) + 1,
+      den: Math.floor(Math.random() * 6) + 2,
+    };
+    const f2 = {
+      num: Math.floor(Math.random() * 5) + 1,
+      den: Math.floor(Math.random() * 6) + 2,
+    };
+
+    const result = multiplyFractions(f1, f2);
+    // Convert to decimal
+    const correctAnswer = (result.num / result.den).toFixed(2);
+
+    // Generate wrong options (decimals)
+    const wrong1 = ((result.num + 1) / result.den).toFixed(2);
+    const wrong2 = (result.num / (result.den + 1)).toFixed(2);
+    const wrong3 = ((f1.num * f2.num) / (f1.den * f2.den + 1)).toFixed(2); // Close to correct
+
+    const options = [
+      correctAnswer,
+      wrong1,
+      wrong2,
+      wrong3,
+    ].filter((v, i, a) => a.indexOf(v) === i) // Remove duplicates
+     .sort(() => Math.random() - 0.5);
+
+    return {
+      question: `multiply`,
+      questionLatex: `\\frac{${f1.num}}{${f1.den}} \\times \\frac{${f2.num}}{${f2.den}} = \\; ?`,
       options: options,
       correctAnswer: correctAnswer,
       type: "multiply",
@@ -243,32 +388,6 @@ const FractionsGame = () => {
         endGame();
       }
     }, 1500);
-  };
-
-  // End game
-  const endGame = async () => {
-    setGameState("result");
-    const duration = startTime ? (Date.now() - startTime) / 1000 : 0;
-
-    try {
-      await gamesAPI.submitResult("fractions", {
-        score,
-        level,
-        duration,
-        correctAnswers,
-        totalQuestions: gameStats.total,
-        settings,
-      });
-
-      updateUserStats({
-        totalScore: score,
-        gamesPlayed: 1,
-      });
-
-      toast.success("Natija saqlandi!");
-    } catch (error) {
-      toast.error("Natijani saqlashda xato");
-    }
   };
 
   // Reset game
@@ -461,26 +580,37 @@ const FractionsGame = () => {
                     </Text>
                   </div>
 
-                  <Title level={3} className="text-gray-800 mb-6">
-                    {currentProblem.question}
-                  </Title>
+                  {/* Savol - KaTeX bilan */}
+                  <div className="text-gray-800 mb-6 flex justify-center items-center text-3xl">
+                    {currentProblem.questionLatex ? (
+                      <MathDisplay latex={currentProblem.questionLatex} />
+                    ) : (
+                      currentProblem.question
+                    )}
+                  </div>
 
                   <div className="space-y-4">
-                    <Text className="text-gray-600">Javobni tanlang:</Text>
+                    <Text className="text-gray-600 text-lg font-semibold">Javobni tanlang:</Text>
 
                     <Radio.Group
                       value={selectedAnswer}
                       onChange={(e) => handleAnswerSelect(e.target.value)}
                       className="w-full"
                     >
-                      <div className="grid grid-cols-1 gap-3">
+                      <div className="grid grid-cols-2 gap-4">
                         {currentProblem.options.map((option, index) => (
                           <Radio
                             key={index}
                             value={option}
-                            className="border rounded-lg p-3 hover:bg-blue-50 transition-colors"
+                            className="border-2 rounded-xl p-6 hover:bg-blue-50 hover:border-blue-400 transition-all cursor-pointer text-center"
                           >
-                            <span className="text-lg font-mono">{option}</span>
+                            <span className="text-3xl font-bold inline-flex items-center justify-center w-full">
+                              {currentProblem.type === "compare" ? (
+                                <span className="text-4xl text-blue-600">{option}</span>
+                              ) : (
+                                <span className="text-gray-800">{option}</span>
+                              )}
+                            </span>
                           </Radio>
                         ))}
                       </div>

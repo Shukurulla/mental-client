@@ -1,8 +1,8 @@
 // components/games/TileMemoryGame.jsx - Plitkalar o'yini
-import React, { useState, useEffect } from "react";
-import { Card, Button, Progress, Typography, Space, message } from "antd";
-import { FaPlay, FaStop, FaLightbulb } from "react-icons/fa";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState } from "react";
+import { Card, Button, Progress, Typography, Space, message, Modal, Slider } from "antd";
+import { FaPlay, FaStop, FaLightbulb, FaCog } from "react-icons/fa";
+import { motion } from "framer-motion";
 
 const { Title, Text } = Typography;
 
@@ -14,8 +14,10 @@ const TileMemoryGame = () => {
   const [pattern, setPattern] = useState([]);
   const [userPattern, setUserPattern] = useState([]);
   const [showingPattern, setShowingPattern] = useState(false);
-  const [gridSize] = useState(3); // 3x3 grid
+  const [gridSize, setGridSize] = useState(3); // 3x3 grid (standart)
+  const [maxPattern, setMaxPattern] = useState(5); // Maksimal topish kerak bo'lgan plitkalar
   const [mode, setMode] = useState("sequential"); // sequential, random
+  const [showSettings, setShowSettings] = useState(false);
 
   // Fisher-Yates shuffle algoritmi
   const shuffleArray = (array) => {
@@ -28,11 +30,15 @@ const TileMemoryGame = () => {
   };
 
   const generatePattern = (currentLevel) => {
-    const patternSize = Math.min(2 + currentLevel, 9);
+    const totalTiles = gridSize * gridSize;
+    // Pattern uzunligi: Birinchi levelda maxPattern ni ishlatamiz, keyin level oshganda oshadi
+    // Lekin hech qachon maxPattern dan oshmaydi
+    const basePattern = Math.min(maxPattern, totalTiles - 1);
+    const patternSize = Math.min(basePattern + (currentLevel - 1), maxPattern, totalTiles - 1);
     const newPattern = [];
 
     // Barcha mumkin bo'lgan plitkalarni yaratish
-    const allTiles = Array.from({ length: gridSize * gridSize }, (_, i) => i);
+    const allTiles = Array.from({ length: totalTiles }, (_, i) => i);
 
     if (mode === "random") {
       // Haqiqiy tasodifiy tartib
@@ -43,7 +49,7 @@ const TileMemoryGame = () => {
     } else {
       // Oddiy tasodifiy tanlov (sequential mode)
       while (newPattern.length < patternSize) {
-        const tile = Math.floor(Math.random() * (gridSize * gridSize));
+        const tile = Math.floor(Math.random() * totalTiles);
         if (!newPattern.includes(tile)) {
           newPattern.push(tile);
         }
@@ -65,41 +71,51 @@ const TileMemoryGame = () => {
     setTimeout(() => {
       setShowingPattern(false);
       setGameState("playing");
+      message.info("Endi plitkalarni bosing!");
     }, showTime);
   };
 
   const handleTileClick = (tileIndex) => {
     if (gameState !== "playing") return;
 
-    const newUserPattern = [...userPattern, tileIndex];
+    // Agar bu plitka allaqachon bosilgan bo'lsa, qayta bosib bo'lmaydi
+    if (userPattern.includes(tileIndex)) {
+      message.warning("Bu plitkani allaqachon tanladingiz!");
+      return;
+    }
 
-    // Hozirgi bosqichni tekshirish
-    if (
-      newUserPattern[newUserPattern.length - 1] !==
-      pattern[newUserPattern.length - 1]
-    ) {
-      // Noto'g'ri
-      setLives(lives - 1);
-      if (lives <= 1) {
+    // Faqat pattern ichida borligini tekshirish (tartib muhim emas)
+    const isInPattern = pattern.includes(tileIndex);
+
+    if (!isInPattern) {
+      // Noto'g'ri - bu karta pattern ichida yo'q
+      const newLives = lives - 1;
+      setLives(newLives);
+      if (newLives <= 0) {
         setGameState("finished");
-        message.error("O'yin tugadi!");
+        message.error("O'yin tugadi! Jon qolmadi.");
       } else {
-        message.error("Noto'g'ri! Qayta urinib ko'ring.");
-        setUserPattern([]);
+        message.error(`Noto'g'ri! Bu karta ko'k emas edi. ${newLives} jon qoldi.`);
+        // To'g'ri topilgan plitkalarni saqlab qolamiz
       }
       return;
     }
 
+    // To'g'ri - bu karta pattern ichida bor!
+    const newUserPattern = [...userPattern, tileIndex];
     setUserPattern(newUserPattern);
 
-    // Pattern to'liq to'g'ri kiritildimi?
+    // Barcha to'g'ri kartalar tanlandimi?
     if (newUserPattern.length === pattern.length) {
       setScore(score + pattern.length * 50);
       setLevel(level + 1);
-      message.success("Ajoyib! Keyingi darajaga o'tdingiz!");
+      message.success(`Ajoyib! Barcha kartalarni topdingiz! Keyingi daraja: ${level + 1}`);
       setTimeout(() => {
         startGame();
-      }, 1000);
+      }, 1500);
+    } else {
+      // Hali yakunlanmagan, to'g'ri yo'ldasiz
+      message.success(`To'g'ri! ${newUserPattern.length}/${pattern.length} topildi`);
     }
   };
 
@@ -107,45 +123,43 @@ const TileMemoryGame = () => {
     const tiles = [];
 
     for (let i = 0; i < gridSize * gridSize; i++) {
-      const isInPattern = pattern.includes(i);
-      const isShowing = showingPattern && isInPattern;
-      const isClicked = userPattern.includes(i);
+      // MUHIM: Faqat showingPattern TRUE bo'lganda VA bu index pattern ichida bo'lsa ko'k
+      const shouldShowBlue = showingPattern === true && pattern.includes(i);
+      const isClickedByUser = userPattern.includes(i);
 
       tiles.push(
         <motion.button
           key={i}
           className={`
-            w-full aspect-square rounded-lg border-2 transition-all duration-300 font-bold text-xl
+            relative w-full aspect-square rounded-lg border-2 transition-all duration-300 font-bold text-xl
             ${
-              isShowing
+              shouldShowBlue
                 ? "bg-blue-500 border-blue-600 text-white shadow-lg"
-                : isClicked
-                ? "bg-green-400 border-green-500 text-white"
-                : "bg-gray-100 border-gray-300 hover:bg-gray-200 text-gray-600"
+                : isClickedByUser
+                ? "bg-green-400 border-green-500 text-white shadow-md"
+                : "bg-white border-gray-300 hover:bg-gray-50 hover:border-blue-400 text-gray-600 shadow-sm"
             }
-            ${gameState === "playing" ? "cursor-pointer" : "cursor-default"}
+            ${gameState === "playing" ? "cursor-pointer active:scale-95" : "cursor-default"}
           `}
           onClick={() => handleTileClick(i)}
           whileHover={gameState === "playing" ? { scale: 1.05 } : {}}
           whileTap={gameState === "playing" ? { scale: 0.95 } : {}}
           disabled={gameState !== "playing"}
-          animate={
-            isShowing
-              ? {
-                  scale: [1, 1.1, 1],
-                  backgroundColor: ["#3b82f6", "#60a5fa", "#3b82f6"],
-                }
-              : {}
-          }
-          transition={{ duration: 0.5 }}
         >
-          {/* Raqam ko'rsatilmasin, faqat rang o'zgarishi */}
+          {/* Kartalar endi bo'sh */}
         </motion.button>
       );
     }
 
     return (
-      <div className="grid grid-cols-3 gap-3 max-w-sm mx-auto">{tiles}</div>
+      <div
+        className={`grid gap-3 max-w-2xl mx-auto`}
+        style={{
+          gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`
+        }}
+      >
+        {tiles}
+      </div>
     );
   };
 
@@ -156,13 +170,15 @@ const TileMemoryGame = () => {
         <div className="text-center mb-6">
           <Title level={2}>🎯 Plitkalar Xotirasi</Title>
           <Text className="text-gray-600">
-            Yongan plitkalarning ketma-ketligini eslab qoling va takrorlang
+            Ko'k bo'lgan plitkalarni eslab qoling va ularni toping (tartib muhim emas)
           </Text>
 
           {/* Mode selector */}
           {gameState === "waiting" && (
             <div className="mt-4">
-              <Text strong className="block mb-2">Rejim tanlang:</Text>
+              <Text strong className="block mb-2">
+                Rejim tanlang:
+              </Text>
               <Space>
                 <Button
                   type={mode === "sequential" ? "primary" : "default"}
@@ -175,6 +191,12 @@ const TileMemoryGame = () => {
                   onClick={() => setMode("random")}
                 >
                   Haqiqiy Tasodifiy
+                </Button>
+                <Button
+                  icon={<FaCog />}
+                  onClick={() => setShowSettings(true)}
+                >
+                  Sozlamalar
                 </Button>
               </Space>
             </div>
@@ -206,7 +228,7 @@ const TileMemoryGame = () => {
               <div className="flex items-center justify-center space-x-2 text-gray-600 mb-4">
                 <FaLightbulb className="text-yellow-500" />
                 <Text>
-                  Yongan plitkalarni kuzatib, ularni tartib bo'yicha bosing
+                  Ko'k bo'lgan plitkalarni kuzatib, ularni istalgan tartibda toping
                 </Text>
               </div>
               <Button
@@ -224,7 +246,7 @@ const TileMemoryGame = () => {
           {gameState === "showing" && (
             <div>
               <Text className="text-lg font-medium text-blue-600 mb-4 block">
-                🔍 Diqqat bilan kuzating...
+                🔍 Diqqat bilan kuzating... ({pattern.length} ta plitka)
               </Text>
               <Progress
                 percent={100}
@@ -237,8 +259,7 @@ const TileMemoryGame = () => {
 
           {gameState === "playing" && (
             <Text className="text-lg font-medium text-green-600">
-              👆 Endi plitkalarni tartib bo'yicha bosing ({userPattern.length}/
-              {pattern.length})
+              👆 Ko'k bo'lgan plitkalarni toping ({userPattern.length}/{pattern.length} topildi)
             </Text>
           )}
         </div>
@@ -259,11 +280,22 @@ const TileMemoryGame = () => {
               </Button>
               <Button
                 onClick={() => {
+                  // Pattern'ni qayta ko'rsatish
                   setUserPattern([]);
-                  message.info("Pattern tozalandi, qayta boshlang");
+                  setShowingPattern(true);
+                  setGameState("showing");
+
+                  message.info("Pattern qayta ko'rsatilmoqda...");
+
+                  const showTime = Math.max(2000 - level * 100, 500);
+                  setTimeout(() => {
+                    setShowingPattern(false);
+                    setGameState("playing");
+                    message.info("Endi plitkalarni bosing!");
+                  }, showTime);
                 }}
               >
-                Qayta boshlash
+                Qayta ko'rsatish
               </Button>
             </Space>
           </div>
@@ -284,7 +316,7 @@ const TileMemoryGame = () => {
                   setLevel(1);
                   setScore(0);
                   setLives(3);
-                  startGame();
+                  setGameState("waiting");
                 }}
               >
                 Qayta o'ynash
@@ -294,6 +326,71 @@ const TileMemoryGame = () => {
           </div>
         )}
       </Card>
+
+      {/* Sozlamalar Modal */}
+      <Modal
+        title="Sozlamalar"
+        open={showSettings}
+        onOk={() => setShowSettings(false)}
+        onCancel={() => setShowSettings(false)}
+        okText="Saqlash"
+        cancelText="Bekor qilish"
+      >
+        <div className="space-y-6">
+          <div>
+            <Text strong className="block mb-2">
+              Plitkalar soni: {gridSize}x{gridSize} ({gridSize * gridSize} ta)
+            </Text>
+            <Slider
+              min={3}
+              max={6}
+              value={gridSize}
+              onChange={(value) => {
+                setGridSize(value);
+                // Grid o'zgarsa, maxPattern ham mos bo'lishi kerak
+                const newTotalTiles = value * value;
+                const maxPossible = Math.floor(newTotalTiles * 0.6); // 60% gacha
+                if (maxPattern > maxPossible) {
+                  setMaxPattern(maxPossible);
+                }
+              }}
+              marks={{
+                3: '3x3',
+                4: '4x4',
+                5: '5x5',
+                6: '6x6'
+              }}
+              step={1}
+            />
+            <Text type="secondary" className="text-xs block mt-2">
+              Standart: 3x3 (9 ta plitka)
+            </Text>
+          </div>
+
+          <div>
+            <Text strong className="block mb-2">
+              Topish kerak bo'lgan plitkalar: {maxPattern} ta (maksimal)
+            </Text>
+            <Slider
+              min={3}
+              max={Math.floor(gridSize * gridSize * 0.6)} // Jami plitkalarning 60% gacha
+              value={maxPattern}
+              onChange={(value) => setMaxPattern(value)}
+              marks={{
+                3: '3',
+                [Math.floor(gridSize * gridSize * 0.6)]: `${Math.floor(gridSize * gridSize * 0.6)}`
+              }}
+              step={1}
+            />
+            <Text type="secondary" className="text-xs block mt-2">
+              O'yin level oshgani sari topish kerak bo'lgan plitkalar soni oshadi, lekin bu maksimal qiymatdan oshmaydi.
+            </Text>
+            <Text type="secondary" className="text-xs block mt-1">
+              Standart: 5 ta (9 ta plitkada)
+            </Text>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };
